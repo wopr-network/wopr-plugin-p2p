@@ -1,0 +1,12 @@
+{
+  "name": "wopr-plugin-p2p",
+  "version": "0.1.0",
+  "description": "P2P network management plugin for WOPR - manage peers, invites, and access",
+  "main": "index.js",
+  "type": "module",
+  "wopr": {
+    "type": "plugin",
+    "minVersion": "1.0.0"
+  },
+  "dependencies": {}
+}
