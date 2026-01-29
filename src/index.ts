@@ -718,6 +718,37 @@ const plugin: WOPRPlugin = {
       ctx.log.info(`Registered ${p2pTools.length} P2P A2A tools`);
     }
 
+    // Register P2P extension for other plugins to use
+    if (ctx.registerExtension) {
+      ctx.registerExtension("p2p", {
+        // Identity
+        getIdentity: () => {
+          const id = getIdentity();
+          return id ? { publicKey: id.publicKey, shortId: shortKey(id.publicKey), encryptPub: id.encryptPub } : null;
+        },
+        shortKey,
+
+        // Peers
+        getPeers,
+        findPeer,
+        namePeer,
+        revokePeer,
+
+        // Messaging
+        injectPeer: async (peerKey: string, session: string, message: string) => {
+          return sendP2PInject(peerKey, session, message);
+        },
+
+        // Discovery
+        joinTopic,
+        leaveTopic,
+        getTopics,
+        getDiscoveredPeers,
+        requestConnection,
+      });
+      ctx.log.info("Registered P2P extension for inter-plugin use");
+    }
+
     // Start UI server
     const config = ctx.getConfig();
     const uiPort = (config.uiPort as number) || 7334;
@@ -756,6 +787,12 @@ const plugin: WOPRPlugin = {
 
   async shutdown() {
     logger.info("[p2p] Shutting down...");
+
+    // Unregister P2P extension
+    if (ctx?.unregisterExtension) {
+      ctx.unregisterExtension("p2p");
+      logger.info("[p2p] P2P extension unregistered");
+    }
 
     // Shutdown discovery
     try {

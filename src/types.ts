@@ -220,6 +220,33 @@ export interface WOPRPluginContext {
     description: string;
     category: string;
   }) => void;
+  // Plugin extensions - expose APIs to other plugins
+  registerExtension?: (name: string, extension: unknown) => void;
+  unregisterExtension?: (name: string) => void;
+  getExtension?: <T = unknown>(name: string) => T | undefined;
+}
+
+// P2P Extension API - exposed to other plugins via ctx.getExtension("p2p")
+export interface P2PExtension {
+  // Identity
+  getIdentity(): { publicKey: string; shortId: string; encryptPub: string } | null;
+  shortKey(key: string): string;
+
+  // Peers
+  getPeers(): Peer[];
+  findPeer(keyOrName: string): Peer | undefined;
+  namePeer(key: string, name: string): boolean;
+  revokePeer(key: string): boolean;
+
+  // Messaging
+  injectPeer(peerKey: string, session: string, message: string): Promise<SendResult>;
+
+  // Discovery
+  joinTopic(topic: string): Promise<void>;
+  leaveTopic(topic: string): Promise<void>;
+  getTopics(): string[];
+  getDiscoveredPeers(topic?: string): DiscoveredPeer[];
+  requestConnection(peerId: string): Promise<ConnectionResult>;
 }
 
 export interface WOPRPlugin {
