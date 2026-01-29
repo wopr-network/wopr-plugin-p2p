@@ -1,6 +1,11 @@
 # WOPR P2P Management Plugin
 
-P2P network management plugin for WOPR. Provides UI for managing peers, invites, and access control.
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![WOPR](https://img.shields.io/badge/WOPR-Plugin-blue)](https://github.com/TSavo/wopr)
+
+P2P network management plugin for [WOPR](https://github.com/TSavo/wopr). Provides UI for managing peers, invites, and access control.
+
+> Part of the [WOPR](https://github.com/TSavo/wopr) ecosystem - Self-sovereign AI session management over P2P.
 
 ## Features
 
