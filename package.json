@@ -1,12 +1,42 @@
 {
   "name": "wopr-plugin-p2p",
-  "version": "0.1.0",
-  "description": "P2P network management plugin for WOPR - manage peers, invites, and access",
-  "main": "index.js",
+  "version": "1.0.0",
+  "description": "P2P networking plugin for WOPR with Hyperswarm, identity management, and A2A tools",
+  "main": "dist/index.js",
   "type": "module",
-  "wopr": {
-    "type": "plugin",
-    "minVersion": "1.0.0"
+  "scripts": {
+    "build": "tsc",
+    "prepublishOnly": "npm run build"
   },
-  "dependencies": {}
+  "keywords": [
+    "wopr",
+    "wopr-plugin",
+    "p2p",
+    "hyperswarm",
+    "peer-to-peer",
+    "a2a"
+  ],
+  "author": "",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "wopr": {
+    "plugin": {
+      "name": "p2p",
+      "category": "network",
+      "description": "P2P networking with Hyperswarm, identity, trust, and A2A tools"
+    }
+  },
+  "peerDependencies": {
+    "wopr": "^0.0.1"
+  },
+  "dependencies": {
+    "hyperswarm": "^4.7.15",
+    "winston": "^3.11.0"
+  },
+  "devDependencies": {
+    "@types/node": "^18.0.0",
+    "typescript": "^5.0.0"
+  }
 }
