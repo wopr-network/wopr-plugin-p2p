@@ -9,6 +9,8 @@ export const EXIT_REJECTED = 2;
 export const EXIT_INVALID = 3;
 export const EXIT_RATE_LIMITED = 4;
 export const EXIT_VERSION_MISMATCH = 5;
+export const EXIT_PEER_OFFLINE = 6;
+export const EXIT_UNAUTHORIZED = 7;
 
 // Protocol version
 export const PROTOCOL_VERSION = 2;
@@ -240,4 +242,33 @@ export interface ClaimResult {
   sessions?: string[];
   caps?: string[];
   message?: string;
+}
+
+// Discovery Types
+export interface DiscoveredPeer {
+  id: string;
+  publicKey: string;
+  encryptPub?: string;
+  content?: Record<string, unknown>;
+  topics?: string[];
+  updated?: number;
+  connected?: boolean;
+  grantedSessions?: string[];
+}
+
+export interface DiscoveryProfile {
+  id: string;
+  publicKey: string;
+  encryptPub: string;
+  content: Record<string, unknown>;
+  topics: string[];
+  updated: number;
+}
+
+export interface ConnectionResult {
+  accept: boolean;
+  code?: number;
+  sessions?: string[];
+  message?: string;
+  reason?: string;
 }

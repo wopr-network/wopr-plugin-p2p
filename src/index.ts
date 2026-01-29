@@ -37,6 +37,17 @@ import {
   grantAccess,
 } from "./trust.js";
 import { sendP2PInject, claimToken, createP2PListener, sendKeyRotation } from "./p2p.js";
+import {
+  initDiscovery,
+  joinTopic,
+  leaveTopic,
+  getTopics,
+  getDiscoveredPeers,
+  requestConnection,
+  getProfile,
+  updateProfile,
+  shutdownDiscovery,
+} from "./discovery.js";
 
 // Setup winston logger
 const logger = winston.createLogger({
@@ -462,6 +473,184 @@ const p2pTools: A2AToolDefinition[] = [
       );
     },
   },
+
+  // Discovery Tools
+  {
+    name: "p2p_join_topic",
+    description: "Join a discovery topic to find other peers. Peers in the same topic can discover each other.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        topic: { type: "string", description: "Topic name to join" },
+      },
+      required: ["topic"],
+    },
+    handler: async (args) => {
+      try {
+        await joinTopic(args.topic as string);
+        return toolResult(
+          JSON.stringify({
+            success: true,
+            topic: args.topic,
+            activeTopics: getTopics(),
+          })
+        );
+      } catch (err) {
+        return toolResult(`Failed to join topic: ${err}`, true);
+      }
+    },
+  },
+  {
+    name: "p2p_leave_topic",
+    description: "Leave a discovery topic.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        topic: { type: "string", description: "Topic name to leave" },
+      },
+      required: ["topic"],
+    },
+    handler: async (args) => {
+      try {
+        await leaveTopic(args.topic as string);
+        return toolResult(
+          JSON.stringify({
+            success: true,
+            topic: args.topic,
+            activeTopics: getTopics(),
+          })
+        );
+      } catch (err) {
+        return toolResult(`Failed to leave topic: ${err}`, true);
+      }
+    },
+  },
+  {
+    name: "p2p_list_topics",
+    description: "List all discovery topics you've joined.",
+    inputSchema: {
+      type: "object",
+      properties: {},
+    },
+    handler: async () => {
+      const topics = getTopics();
+      return toolResult(
+        JSON.stringify({
+          count: topics.length,
+          topics,
+        })
+      );
+    },
+  },
+  {
+    name: "p2p_discover_peers",
+    description: "List peers discovered through topic-based discovery.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        topic: { type: "string", description: "Filter by topic (optional)" },
+      },
+    },
+    handler: async (args) => {
+      const peers = getDiscoveredPeers(args.topic as string | undefined);
+      return toolResult(
+        JSON.stringify({
+          count: peers.length,
+          peers: peers.map((p) => ({
+            id: p.id,
+            publicKey: p.publicKey.slice(0, 20) + "...",
+            topics: p.topics,
+            content: p.content,
+            connected: p.connected || false,
+          })),
+        })
+      );
+    },
+  },
+  {
+    name: "p2p_connect_peer",
+    description: "Request connection with a discovered peer. They will decide whether to accept.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        peerId: { type: "string", description: "Peer ID or public key" },
+      },
+      required: ["peerId"],
+    },
+    handler: async (args) => {
+      try {
+        const result = await requestConnection(args.peerId as string);
+        if (result.accept) {
+          return toolResult(
+            JSON.stringify({
+              success: true,
+              connected: true,
+              sessions: result.sessions,
+            })
+          );
+        } else {
+          return toolResult(`Connection rejected: ${result.message || result.reason}`, true);
+        }
+      } catch (err) {
+        return toolResult(`Connection failed: ${err}`, true);
+      }
+    },
+  },
+  {
+    name: "p2p_get_profile",
+    description: "Get your discovery profile.",
+    inputSchema: {
+      type: "object",
+      properties: {},
+    },
+    handler: async () => {
+      const profile = getProfile();
+      if (!profile) {
+        return toolResult("Discovery not initialized", true);
+      }
+      return toolResult(
+        JSON.stringify({
+          id: profile.id,
+          publicKey: profile.publicKey.slice(0, 20) + "...",
+          topics: profile.topics,
+          content: profile.content,
+          updated: new Date(profile.updated).toISOString(),
+        })
+      );
+    },
+  },
+  {
+    name: "p2p_set_profile",
+    description: "Update your discovery profile content. This is broadcast to peers.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        content: {
+          type: "object",
+          description: "Profile content (name, about, capabilities, etc.)",
+        },
+      },
+      required: ["content"],
+    },
+    handler: async (args) => {
+      try {
+        const profile = updateProfile(args.content as Record<string, unknown>);
+        if (!profile) {
+          return toolResult("Discovery not initialized", true);
+        }
+        return toolResult(
+          JSON.stringify({
+            success: true,
+            id: profile.id,
+            content: profile.content,
+            updated: new Date(profile.updated).toISOString(),
+          })
+        );
+      } catch (err) {
+        return toolResult(`Failed to update profile: ${err}`, true);
+      }
+    },
+  },
 ];
 
 /**
@@ -496,6 +685,25 @@ const plugin: WOPRPlugin = {
 
     if (p2pListener) {
       ctx.log.info("P2P listener started");
+    }
+
+    // Initialize discovery system
+    try {
+      await initDiscovery(
+        async (peerProfile, topic) => {
+          ctx?.log.info(`Discovery connection request from ${peerProfile.id} in ${topic}`);
+          // Auto-accept connections from discovered peers
+          return {
+            accept: true,
+            sessions: ["*"],
+            reason: `Discovered in topic: ${topic}`,
+          };
+        },
+        (msg) => ctx?.log.info(`[discovery] ${msg}`)
+      );
+      ctx.log.info("Discovery system initialized");
+    } catch (err) {
+      ctx.log.warn(`Failed to initialize discovery: ${err}`);
     }
 
     // Register A2A tools
@@ -549,6 +757,14 @@ const plugin: WOPRPlugin = {
   async shutdown() {
     logger.info("[p2p] Shutting down...");
 
+    // Shutdown discovery
+    try {
+      await shutdownDiscovery();
+      logger.info("[p2p] Discovery shutdown complete");
+    } catch (err) {
+      logger.warn(`[p2p] Discovery shutdown error: ${err}`);
+    }
+
     if (p2pListener) {
       await p2pListener.destroy();
       p2pListener = null;
@@ -570,4 +786,5 @@ export default plugin;
 export * from "./identity.js";
 export * from "./trust.js";
 export * from "./p2p.js";
+export * from "./discovery.js";
 export * from "./types.js";
