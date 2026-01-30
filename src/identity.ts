@@ -116,7 +116,7 @@ export function rotateIdentity(reason: "scheduled" | "compromise" | "upgrade" = 
     newEncryptPub: newEncPub,
     reason,
     effectiveAt: Date.now(),
-    gracePeriodMs: 7 * 24 * 3600000, // 7 days grace period
+    gracePeriodMs: 24 * 3600000, // 24 hours grace period (reduced from 7 days for security)
   };
 
   // Sign with OLD private key to prove continuity

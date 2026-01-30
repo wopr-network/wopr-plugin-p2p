@@ -34,6 +34,10 @@ import {
 import { findPeer, isAuthorized, grantAccess, addPeer, getGrantForPeer, processPeerKeyRotation } from "./trust.js";
 import { getRateLimiter, getReplayProtector } from "./rate-limit.js";
 
+// Security limits
+const MAX_PAYLOAD_SIZE = 1024 * 1024; // 1MB max payload size
+const MAX_MESSAGE_SIZE = MAX_PAYLOAD_SIZE + 4096; // Payload + protocol overhead
+
 // Session state for forward secrecy
 interface SessionState {
   ephemeral: EphemeralKeyPair;
@@ -514,6 +518,12 @@ function handleConnection(
     const line = buffer.split("\n")[0];
     buffer = buffer.slice(line.length + 1);
 
+    // Reject oversized messages before parsing (defense against memory exhaustion)
+    if (line.length > MAX_MESSAGE_SIZE) {
+      onLog(`Rejected: message too large (${line.length} > ${MAX_MESSAGE_SIZE})`);
+      return;
+    }
+
     let msg: P2PMessage;
     try {
       msg = JSON.parse(line);
@@ -689,6 +699,23 @@ function handleConnection(
           from: myPublicKey,
           session: msg.session,
           reason: "rate limited",
+          nonce: randomBytes(16).toString("hex"),
+          ts: Date.now(),
+        });
+        socket.write(JSON.stringify(reject) + "\n");
+        return;
+      }
+
+      // Check payload size limit (security hardening)
+      const payloadSize = typeof msg.payload === "string" ? msg.payload.length : 0;
+      if (payloadSize > MAX_PAYLOAD_SIZE) {
+        onLog(`Rejected: payload too large from ${shortKey(msg.from)} (${payloadSize} > ${MAX_PAYLOAD_SIZE})`);
+        const reject = signMessage<Omit<P2PMessage, "sig">>({
+          v: PROTOCOL_VERSION,
+          type: "reject",
+          from: myPublicKey,
+          session: msg.session,
+          reason: `payload too large: ${payloadSize} bytes exceeds ${MAX_PAYLOAD_SIZE} limit`,
           nonce: randomBytes(16).toString("hex"),
           ts: Date.now(),
         });

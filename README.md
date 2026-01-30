@@ -58,6 +58,20 @@ This plugin works alongside WOPR's core P2P functionality:
 - This plugin provides the management UI and convenience commands
 - Uses the plugin context API to access identity and peers
 
+## Security
+
+This plugin implements several security hardening measures:
+
+- **Auto-accept disabled**: Discovered peers must be explicitly granted access
+- **Reduced key rotation grace**: 24 hours (reduced from 7 days)
+- **Payload size limits**: 1MB max to prevent memory exhaustion
+- **Rate limiting**: Per-peer limits to prevent abuse
+- **Forward secrecy**: Ephemeral keys for each session
+
+See [SECURITY.md](./SECURITY.md) for complete security documentation.
+
+For WOPR's overall security model (trust levels, capabilities, sandboxing), see the [WOPR Security Documentation](https://github.com/TSavo/wopr/docs/SECURITY.md).
+
 ## License
 
 MIT

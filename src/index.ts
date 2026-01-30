@@ -692,16 +692,22 @@ const plugin: WOPRPlugin = {
       await initDiscovery(
         async (peerProfile, topic) => {
           ctx?.log.info(`Discovery connection request from ${peerProfile.id} in ${topic}`);
-          // Auto-accept connections from discovered peers
+          // SECURITY: Do NOT auto-accept discovered peers
+          // They must be explicitly granted access via p2p_grant
+          // Or route through a gateway session
+          ctx?.log.warn(
+            `[security] Discovered peer ${peerProfile.id} requires explicit grant. ` +
+            `Use p2p_grant to authorize, or configure a gateway session.`
+          );
           return {
-            accept: true,
-            sessions: ["*"],
-            reason: `Discovered in topic: ${topic}`,
+            accept: false,
+            sessions: [],
+            reason: `Discovery auto-accept disabled for security. Use p2p_grant to authorize peer.`,
           };
         },
         (msg) => ctx?.log.info(`[discovery] ${msg}`)
       );
-      ctx.log.info("Discovery system initialized");
+      ctx.log.info("Discovery system initialized (auto-accept DISABLED for security)");
     } catch (err) {
       ctx.log.warn(`Failed to initialize discovery: ${err}`);
     }
