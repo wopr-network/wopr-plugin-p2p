@@ -9,6 +9,7 @@ import Hyperswarm from "hyperswarm";
 import { createHash } from "crypto";
 import { getIdentity, shortKey } from "./identity.js";
 import { addPeer, grantAccess } from "./trust.js";
+import { getSwarmOptions } from "./config.js";
 import type { DiscoveredPeer, DiscoveryProfile, ConnectionResult } from "./types.js";
 import { EXIT_OK, EXIT_PEER_OFFLINE, EXIT_UNAUTHORIZED } from "./types.js";
 
@@ -17,6 +18,8 @@ let discoverySwarm: Hyperswarm | null = null;
 let myProfile: DiscoveryProfile | null = null;
 const activeTopics: Map<string, Buffer> = new Map();
 const discoveredPeers: Map<string, DiscoveredPeer> = new Map();
+const peerSockets: Map<string, any> = new Map(); // Track sockets by peer publicKey
+const swarmKeyToProfileKey: Map<string, string> = new Map(); // Map Hyperswarm key to profile key
 let connectionHandler: ((peer: DiscoveryProfile, topic: string) => Promise<ConnectionResult>) | null = null;
 let logFn: ((msg: string) => void) | null = null;
 
@@ -56,27 +59,63 @@ export async function initDiscovery(
     updated: Date.now(),
   };
 
-  // Create discovery swarm
-  discoverySwarm = new Hyperswarm();
+  // Create discovery swarm with custom bootstrap if configured
+  const swarmOpts = getSwarmOptions();
+  logFn?.(`Creating discovery swarm with options: ${JSON.stringify(swarmOpts)}`);
+  discoverySwarm = new Hyperswarm(swarmOpts);
+
+  // Handle swarm-level errors to prevent crashes
+  (discoverySwarm as any).on("error", (err: Error) => {
+    logFn?.(`[discovery] Swarm error: ${err.message}`);
+  });
 
   discoverySwarm.on("connection", async (socket, peerInfo) => {
     const remotePubkey = peerInfo.publicKey?.toString("hex");
     logFn?.(`Discovery connection from ${remotePubkey ? shortKey(remotePubkey) : "unknown"}`);
+    logFn?.(`Connection info - client: ${peerInfo.client}, topics: ${peerInfo.topics?.length || 0}`);
+
+    // Setup keepalive ping every 10 seconds
+    const keepaliveInterval = setInterval(() => {
+      try {
+        socket.write(JSON.stringify({ type: "ping", ts: Date.now() }));
+      } catch {
+        clearInterval(keepaliveInterval);
+      }
+    }, 10000);
+
+    // Clean up keepalive on socket close/error
+    socket.on("close", () => {
+      clearInterval(keepaliveInterval);
+      logFn?.(`[discovery] Socket closed for ${remotePubkey ? shortKey(remotePubkey) : "unknown"}`);
+    });
+    socket.on("error", (err: Error) => {
+      clearInterval(keepaliveInterval);
+      logFn?.(`[discovery] Socket error: ${err.message}`);
+    });
 
     // Exchange profiles
-    socket.write(JSON.stringify({
+    const profileMsg = JSON.stringify({
       type: "profile",
       profile: myProfile,
-    }));
+    });
+    logFn?.(`Sending profile (${profileMsg.length} bytes)`);
+    const writeResult = socket.write(profileMsg);
+    logFn?.(`Write result: ${writeResult}`);
 
     socket.on("data", async (data: Buffer) => {
+      logFn?.(`Received data (${data.length} bytes): ${data.toString().slice(0, 100)}...`);
       try {
         const msg = JSON.parse(data.toString());
+        logFn?.(`Parsed message type: ${msg.type}`);
 
         if (msg.type === "profile" && msg.profile) {
           const peer = msg.profile as DiscoveryProfile;
           discoveredPeers.set(peer.publicKey, peer);
-          logFn?.(`Discovered peer: ${peer.id}`);
+          peerSockets.set(peer.publicKey, socket); // Track socket for this peer
+          if (remotePubkey) {
+            swarmKeyToProfileKey.set(remotePubkey, peer.publicKey); // Map swarm key to profile key
+          }
+          logFn?.(`Discovered peer: ${peer.id}, total peers: ${discoveredPeers.size}`);
         } else if (msg.type === "connect_request" && msg.topic) {
           // Handle connection request
           if (connectionHandler && myProfile) {
@@ -96,11 +135,33 @@ export async function initDiscovery(
         } else if (msg.type === "connect_response") {
           // Handle connection response (stored for later retrieval)
           if (msg.accept && remotePubkey) {
-            const peer = discoveredPeers.get(remotePubkey);
+            // Look up profile key from swarm key
+            const profileKey = swarmKeyToProfileKey.get(remotePubkey);
+            const peer = profileKey ? discoveredPeers.get(profileKey) : null;
             if (peer) {
               peer.connected = true;
               peer.grantedSessions = msg.sessions;
+              // Auto-grant bidirectional access - they accepted us, so we grant them access to message us back
+              grantAccess(peer.publicKey, msg.sessions || ["*"], ["inject", "message"], peer.encryptPub);
+              addPeer(peer.publicKey, msg.sessions || ["*"], ["inject", "message"], peer.encryptPub);
+              logFn?.(`Connection accepted by ${peer.id}, sessions: ${msg.sessions}, auto-granted bidirectional access`);
+            } else {
+              logFn?.(`connect_response received but peer not found for swarm key ${shortKey(remotePubkey)}`);
             }
+          }
+        } else if (msg.type === "ping") {
+          // Respond to keepalive ping with pong
+          socket.write(JSON.stringify({ type: "pong", ts: msg.ts }));
+        } else if (msg.type === "pong") {
+          // Keepalive pong received - connection is alive
+          // No action needed, just keeps the connection active
+        } else if (msg.type === "grant_update" && msg.grants) {
+          // Peer is notifying us of updated grants for us
+          const profileKey = swarmKeyToProfileKey.get(remotePubkey || "");
+          const peer = profileKey ? discoveredPeers.get(profileKey) : null;
+          if (peer) {
+            peer.grantedSessions = msg.grants.sessions || peer.grantedSessions;
+            logFn?.(`Grant update from ${peer.id}: sessions=${msg.grants.sessions}`);
           }
         }
       } catch (err) {
@@ -211,14 +272,33 @@ export async function requestConnection(peerId: string): Promise<ConnectionResul
     return { accept: false, code: EXIT_UNAUTHORIZED, message: "No common topic with peer" };
   }
 
-  // Send connection request via the swarm
-  // This is simplified - in production you'd track the specific connection
+  // Get the socket for this peer
+  const socket = peerSockets.get(peer.publicKey);
+  if (!socket) {
+    logFn?.(`No socket found for peer ${peer.id}`);
+    return { accept: false, code: EXIT_PEER_OFFLINE, message: "No active connection to peer" };
+  }
+
+  // Send connect_request message
+  logFn?.(`Sending connect_request to ${peer.id} for topic ${commonTopic}`);
+  try {
+    socket.write(JSON.stringify({
+      type: "connect_request",
+      topic: commonTopic,
+      profile: myProfile,
+    }));
+  } catch (err) {
+    logFn?.(`Failed to send connect_request: ${err}`);
+    return { accept: false, code: EXIT_PEER_OFFLINE, message: "Failed to send request" };
+  }
+
+  // Wait for connect_response
   return new Promise((resolve) => {
     const timeout = setTimeout(() => {
       resolve({ accept: false, code: EXIT_PEER_OFFLINE, message: "Connection timeout" });
     }, 10000);
 
-    // Check if peer accepted (simplified - relies on connect_response handler)
+    // Check if peer accepted (relies on connect_response handler)
     const checkInterval = setInterval(() => {
       const updatedPeer = discoveredPeers.get(peer!.publicKey);
       if (updatedPeer?.connected) {
@@ -270,6 +350,29 @@ export function updateProfile(content: Record<string, unknown>): DiscoveryProfil
 }
 
 /**
+ * Notify a connected peer of updated grants
+ */
+export function notifyGrantUpdate(peerPublicKey: string, sessions: string[]): boolean {
+  const socket = peerSockets.get(peerPublicKey);
+  if (!socket) {
+    logFn?.(`Cannot notify grant update - no socket for peer ${shortKey(peerPublicKey)}`);
+    return false;
+  }
+
+  try {
+    socket.write(JSON.stringify({
+      type: "grant_update",
+      grants: { sessions },
+    }));
+    logFn?.(`Sent grant update to ${shortKey(peerPublicKey)}: sessions=${sessions}`);
+    return true;
+  } catch (err) {
+    logFn?.(`Failed to send grant update: ${err}`);
+    return false;
+  }
+}
+
+/**
  * Shutdown discovery system
  */
 export async function shutdownDiscovery(): Promise<void> {
@@ -289,6 +392,8 @@ export async function shutdownDiscovery(): Promise<void> {
 
   activeTopics.clear();
   discoveredPeers.clear();
+  peerSockets.clear();
+  swarmKeyToProfileKey.clear();
   myProfile = null;
   connectionHandler = null;
   logFn = null;

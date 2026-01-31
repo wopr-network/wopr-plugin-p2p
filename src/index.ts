@@ -18,6 +18,7 @@ import type {
   A2AToolDefinition,
   A2AServerConfig,
   A2AToolResult,
+  A2AToolContext,
 } from "./types.js";
 import { EXIT_OK } from "./types.js";
 import {
@@ -35,8 +36,9 @@ import {
   revokePeer,
   addPeer,
   grantAccess,
+  isAuthorized,
 } from "./trust.js";
-import { sendP2PInject, claimToken, createP2PListener, sendKeyRotation } from "./p2p.js";
+import { sendP2PInject, sendP2PLog, claimToken, createP2PListener, sendKeyRotation, setP2PLogger } from "./p2p.js";
 import {
   initDiscovery,
   joinTopic,
@@ -47,7 +49,9 @@ import {
   getProfile,
   updateProfile,
   shutdownDiscovery,
+  notifyGrantUpdate,
 } from "./discovery.js";
+import { setP2PConfig } from "./config.js";
 
 // Setup winston logger
 const logger = winston.createLogger({
@@ -65,6 +69,10 @@ const logger = winston.createLogger({
 let ctx: WOPRPluginContext | null = null;
 let p2pListener: Hyperswarm | null = null;
 let uiServer: http.Server | null = null;
+
+// Track sessions currently being P2P injected into
+// This prevents recursive inject loops (A injects to B, B tries to inject back to A)
+const sessionsBeingInjected: Set<string> = new Set();
 
 // Content types for UI server
 const CONTENT_TYPES: Record<string, string> = {
@@ -329,20 +337,20 @@ const p2pTools: A2AToolDefinition[] = [
 
   // Messaging Tools
   {
-    name: "p2p_send_message",
-    description: "Send an encrypted message to a peer. They must be online and you must have access.",
+    name: "p2p_log_message",
+    description: "Log a message to a peer's session (mailbox style). Message is stored in their session history for later viewing. Does NOT invoke the AI - just delivers the message. Use p2p_inject_message if you need an AI response.",
     inputSchema: {
       type: "object",
       properties: {
         peer: { type: "string", description: "Peer ID, name, or public key" },
-        session: { type: "string", description: "Session to inject into" },
+        session: { type: "string", description: "Session to log message to" },
         message: { type: "string", description: "Message content" },
         timeoutMs: { type: "number", description: "Timeout in milliseconds (default: 10000)" },
       },
       required: ["peer", "session", "message"],
     },
     handler: async (args) => {
-      const result = await sendP2PInject(
+      const result = await sendP2PLog(
         args.peer as string,
         args.session as string,
         args.message as string,
@@ -353,16 +361,66 @@ const p2pTools: A2AToolDefinition[] = [
         return toolResult(
           JSON.stringify({
             success: true,
+            mode: "log",
             peer: args.peer,
             session: args.session,
           })
         );
       } else {
-        return toolResult(`Send failed: ${result.message}`, true);
+        return toolResult(`Log failed: ${result.message}`, true);
       }
     },
   },
+  {
+    name: "p2p_inject_message",
+    description: "Inject a message into a peer's session and get the AI's response back. This invokes the peer's AI which processes the message and generates a response. Use for questions or tasks that need a reply. Use p2p_log_message for fire-and-forget notifications. NOTE: Cannot be used while processing an incoming P2P inject - just respond with text instead.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        peer: { type: "string", description: "Peer ID, name, or public key" },
+        session: { type: "string", description: "Session to inject into" },
+        message: { type: "string", description: "Message content" },
+        timeoutMs: { type: "number", description: "Timeout in milliseconds (default: 60000 for AI processing)" },
+      },
+      required: ["peer", "session", "message"],
+    },
+    handler: async (args, context?: A2AToolContext) => {
+      // CRITICAL: Block recursive P2P inject loops
+      // If this session is currently being P2P injected into, the AI should NOT
+      // call p2p_inject_message - it should just respond with text, which will
+      // be returned to the caller automatically via the inject response channel.
+      if (context?.sessionName && sessionsBeingInjected.has(context.sessionName)) {
+        logger.warn(`[p2p] BLOCKED: Session ${context.sessionName} tried to call p2p_inject_message while being P2P injected into`);
+        return toolResult(
+          `BLOCKED: You are currently responding to a P2P inject. ` +
+          `Do NOT use p2p_inject_message to reply - just respond with text. ` +
+          `Your text response will be automatically returned to the caller.`,
+          true
+        );
+      }
 
+      const result = await sendP2PInject(
+        args.peer as string,
+        args.session as string,
+        args.message as string,
+        (args.timeoutMs as number) || 60000  // Longer timeout for AI processing
+      );
+
+      if (result.code === EXIT_OK) {
+        return toolResult(
+          JSON.stringify({
+            success: true,
+            mode: "inject",
+            peer: args.peer,
+            session: args.session,
+            response: result.response,  // AI's response
+          })
+        );
+      } else {
+        return toolResult(`Inject failed: ${result.message}`, true);
+      }
+    },
+  },
   // Status Tools
   {
     name: "p2p_status",
@@ -403,11 +461,11 @@ const p2pTools: A2AToolDefinition[] = [
   // Grant Access Tools
   {
     name: "p2p_grant_access",
-    description: "Manually grant a peer access to specific sessions without using tokens.",
+    description: "Manually grant a peer access to specific sessions without using tokens. Updates existing peer record if found.",
     inputSchema: {
       type: "object",
       properties: {
-        peerKey: { type: "string", description: "Public key of the peer" },
+        peerKey: { type: "string", description: "Peer ID, name, or public key" },
         sessions: {
           type: "array",
           items: { type: "string" },
@@ -423,18 +481,36 @@ const p2pTools: A2AToolDefinition[] = [
     },
     handler: async (args) => {
       try {
+        let peerKey = args.peerKey as string;
+        const sessions = args.sessions as string[];
+
+        // Resolve short ID or name to full public key
+        const existingPeer = findPeer(peerKey);
+        if (existingPeer) {
+          peerKey = existingPeer.publicKey;
+          logger.info(`[p2p] Resolved peer ${args.peerKey} to ${shortKey(peerKey)}`);
+        }
+
         const grant = grantAccess(
-          args.peerKey as string,
-          args.sessions as string[],
+          peerKey,
+          sessions,
           (args.caps as string[]) || ["inject"]
         );
+
+        // Also update the peer record
+        addPeer(peerKey, sessions, (args.caps as string[]) || ["inject"]);
+
+        // Notify the peer of the updated grant if they're connected
+        const notified = notifyGrantUpdate(peerKey, grant.sessions);
+
         return toolResult(
           JSON.stringify({
             success: true,
             grantId: grant.id,
-            peer: shortKey(args.peerKey as string),
+            peer: shortKey(peerKey),
             sessions: grant.sessions,
             caps: grant.caps,
+            notified, // Whether the peer was notified in real-time
           })
         );
       } catch (err) {
@@ -665,6 +741,22 @@ const plugin: WOPRPlugin = {
     ctx = pluginContext;
     ctx.log.info("Initializing P2P plugin...");
 
+    // Set up P2P module logger for debugging
+    setP2PLogger((msg) => ctx?.log.info(`[p2p] ${msg}`));
+
+    // Configure bootstrap nodes if specified in config
+    const pluginConfig = ctx.getConfig();
+    ctx.log.info(`P2P plugin config received: ${JSON.stringify(pluginConfig)}`);
+    if (pluginConfig.bootstrap) {
+      const bootstrapNodes = Array.isArray(pluginConfig.bootstrap)
+        ? pluginConfig.bootstrap
+        : [pluginConfig.bootstrap];
+      setP2PConfig({ bootstrap: bootstrapNodes as string[] });
+      ctx.log.info(`P2P bootstrap configured: ${bootstrapNodes.join(", ")}`);
+    } else {
+      ctx.log.warn("No bootstrap config found in plugin config");
+    }
+
     // Ensure identity exists
     let identity = getIdentity();
     if (!identity) {
@@ -674,14 +766,69 @@ const plugin: WOPRPlugin = {
       ctx.log.info(`P2P identity: ${shortKey(identity.publicKey)}`);
     }
 
-    // Start P2P listener
-    p2pListener = createP2PListener(
-      async (session, message, peerKey) => {
-        ctx?.log.info(`P2P inject: ${peerKey ? shortKey(peerKey) : "unknown"} -> ${session}`);
-        // TODO: Forward to WOPR session injection system
+    // Start P2P listener with log and inject handlers
+    p2pListener = createP2PListener({
+      // Log handler - mailbox style, just stores message in session history
+      onLogMessage: (session, message, peerKey) => {
+        const peerId = peerKey ? shortKey(peerKey) : "unknown";
+        ctx?.log.info(`P2P log message: ${peerId} -> ${session}`);
+        ctx?.log.info(`P2P message content: ${message.slice(0, 200)}...`);
+
+        // Log the message to the session (makes it visible in history)
+        if (ctx?.logMessage) {
+          ctx.logMessage(session, message, {
+            from: `p2p:${peerId}`,
+            channel: { type: "p2p", id: peerKey || "unknown" },
+          });
+          ctx?.log.info(`[p2p] Message logged to session ${session}`);
+        } else {
+          ctx?.log.warn(`[p2p] No logMessage method - message not logged to session`);
+        }
       },
-      (msg) => ctx?.log.info(`[p2p] ${msg}`)
-    );
+
+      // Inject handler - invokes AI and returns response
+      onInjectMessage: async (session, message, peerKey) => {
+        const peerId = peerKey ? shortKey(peerKey) : "unknown";
+        ctx?.log.info(`P2P inject message: ${peerId} -> ${session}`);
+        ctx?.log.info(`P2P message content: ${message.slice(0, 200)}...`);
+
+        // Invoke the AI and get response
+        if (ctx?.inject) {
+          try {
+            ctx?.log.info(`[p2p] Calling ctx.inject for session ${session}...`);
+
+            // Track this session as being P2P injected into
+            // This prevents the AI from calling p2p_inject_message while processing
+            sessionsBeingInjected.add(session);
+            ctx?.log.info(`[p2p] Session ${session} marked as being-injected (blocks p2p_inject_message)`);
+
+            const startTime = Date.now();
+            try {
+              const response = await ctx.inject(session, message, {
+                from: `p2p:${peerId}`,
+                channel: { type: "p2p", id: peerKey || "unknown" },
+              });
+              const elapsed = Date.now() - startTime;
+              ctx?.log.info(`[p2p] AI response generated (${response.length} chars) in ${elapsed}ms`);
+              return response;
+            } finally {
+              // Always clear the tracking, even on error
+              sessionsBeingInjected.delete(session);
+              ctx?.log.info(`[p2p] Session ${session} cleared from being-injected tracking`);
+            }
+          } catch (err) {
+            ctx?.log.error(`[p2p] Inject failed: ${err}`);
+            return `Error: Failed to process message - ${err}`;
+          }
+        } else {
+          ctx?.log.warn(`[p2p] No inject method - cannot invoke AI`);
+          return "Error: AI injection not available";
+        }
+      },
+
+      // Logging output
+      onLog: (msg) => ctx?.log.info(`[p2p] ${msg}`),
+    });
 
     if (p2pListener) {
       ctx.log.info("P2P listener started");
@@ -692,22 +839,34 @@ const plugin: WOPRPlugin = {
       await initDiscovery(
         async (peerProfile, topic) => {
           ctx?.log.info(`Discovery connection request from ${peerProfile.id} in ${topic}`);
-          // SECURITY: Do NOT auto-accept discovered peers
-          // They must be explicitly granted access via p2p_grant
-          // Or route through a gateway session
+
+          // Check if this peer has ANY valid grant (session filtering happens when messaging)
+          const grants = getAccessGrants();
+          const grant = grants.find(g => g.peerKey === peerProfile.publicKey && !g.revoked);
+
+          if (grant) {
+            ctx?.log.info(`[security] Peer ${peerProfile.id} has valid grant - accepting connection`);
+            return {
+              accept: true,
+              sessions: grant.sessions,
+            };
+          }
+
+          // SECURITY: Do NOT auto-accept discovered peers that haven't been granted access
+          // They must be explicitly granted access via p2p_grant_access
           ctx?.log.warn(
             `[security] Discovered peer ${peerProfile.id} requires explicit grant. ` +
-            `Use p2p_grant to authorize, or configure a gateway session.`
+            `Use p2p_grant_access to authorize.`
           );
           return {
             accept: false,
             sessions: [],
-            reason: `Discovery auto-accept disabled for security. Use p2p_grant to authorize peer.`,
+            reason: `Peer not authorized. Use p2p_grant_access to authorize peer ${peerProfile.id}.`,
           };
         },
         (msg) => ctx?.log.info(`[discovery] ${msg}`)
       );
-      ctx.log.info("Discovery system initialized (auto-accept DISABLED for security)");
+      ctx.log.info("Discovery system initialized");
     } catch (err) {
       ctx.log.warn(`Failed to initialize discovery: ${err}`);
     }
@@ -830,4 +989,5 @@ export * from "./identity.js";
 export * from "./trust.js";
 export * from "./p2p.js";
 export * from "./discovery.js";
+export * from "./config.js";
 export * from "./types.js";

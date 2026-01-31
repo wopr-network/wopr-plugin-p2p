@@ -83,7 +83,9 @@ export interface InviteToken {
 export type P2PMessageType =
   | "hello"
   | "hello-ack"
-  | "inject"
+  | "log"       // Mailbox: just log to session history
+  | "inject"   // Invoke AI: process and return response
+  | "response" // AI response to an inject request
   | "ack"
   | "reject"
   | "claim"
@@ -99,6 +101,7 @@ export interface P2PMessage {
   payload?: string;
   token?: string;
   reason?: string;
+  requestId?: string;  // For inject/response correlation
   nonce: string;
   ts: number;
   sig: string;
@@ -187,11 +190,16 @@ export interface A2AToolResult {
   isError?: boolean;
 }
 
+// Context passed to A2A tool handlers by WOPR core
+export interface A2AToolContext {
+  sessionName: string;  // The WOPR session calling this tool
+}
+
 export interface A2AToolDefinition {
   name: string;
   description: string;
   inputSchema: Record<string, unknown>;
-  handler: (args: Record<string, unknown>) => Promise<A2AToolResult>;
+  handler: (args: Record<string, unknown>, context?: A2AToolContext) => Promise<A2AToolResult>;
 }
 
 export interface A2AServerConfig {
@@ -200,12 +208,32 @@ export interface A2AServerConfig {
   tools: A2AToolDefinition[];
 }
 
+// Channel reference for message logging
+export interface ChannelRef {
+  type: string;
+  id: string;
+}
+
+// Options for plugin inject
+export interface PluginInjectOptions {
+  from?: string;
+  channel?: ChannelRef;
+  stream?: boolean;
+}
+
 // WOPR Plugin Types
 export interface WOPRPluginContext {
   log: { info: (msg: string) => void; error: (msg: string) => void; warn: (msg: string) => void };
   registerA2AServer: (config: A2AServerConfig) => void;
   getPluginDir: () => string;
   getConfig: () => Record<string, unknown>;
+
+  // Session injection methods - critical for receiving P2P messages
+  inject?: (session: string, message: string, options?: PluginInjectOptions) => Promise<string>;
+  logMessage?: (session: string, message: string, options?: { from?: string; channel?: ChannelRef }) => void;
+  getSessions?: () => string[];
+  cancelInject?: (session: string) => void;
+
   registerUiComponent?: (component: {
     id: string;
     title: string;
@@ -261,6 +289,7 @@ export interface WOPRPlugin {
 export interface SendResult {
   code: number;
   message?: string;
+  response?: string;  // AI response for inject mode
 }
 
 export interface ClaimResult {

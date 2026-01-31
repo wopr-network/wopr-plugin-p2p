@@ -10,8 +10,8 @@ import { join } from "path";
 import type { AccessGrant, Peer, KeyRotation, KeyHistory } from "./types.js";
 import { getIdentity, initIdentity, shortKey, parseInviteToken, verifyKeyRotation } from "./identity.js";
 
-// Data directory for P2P plugin
-const P2P_DATA_DIR = join(homedir(), ".wopr", "p2p");
+// Data directory for P2P plugin - use /data if it exists (container), otherwise ~/.wopr
+const P2P_DATA_DIR = existsSync("/data") ? "/data/p2p" : join(homedir(), ".wopr", "p2p");
 const ACCESS_FILE = join(P2P_DATA_DIR, "access.json");
 const PEERS_FILE = join(P2P_DATA_DIR, "peers.json");
 
@@ -47,12 +47,14 @@ export function savePeers(peers: Peer[]): void {
 export function isAuthorized(senderKey: string, session: string): boolean {
   const grants = getAccessGrants();
 
-  // Check current key
+  // Check current key - accept either "inject" or "message" capability
+  const hasMessageCap = (caps: string[]) => caps.includes("inject") || caps.includes("message");
+
   let grant = grants.find(g =>
     !g.revoked &&
     g.peerKey === senderKey &&
     (g.sessions.includes("*") || g.sessions.includes(session)) &&
-    g.caps.includes("inject")
+    hasMessageCap(g.caps)
   );
 
   if (grant) return true;
@@ -61,7 +63,7 @@ export function isAuthorized(senderKey: string, session: string): boolean {
   for (const g of grants) {
     if (g.revoked || !g.keyHistory) continue;
     if (!g.sessions.includes("*") && !g.sessions.includes(session)) continue;
-    if (!g.caps.includes("inject")) continue;
+    if (!hasMessageCap(g.caps)) continue;
 
     for (const history of g.keyHistory) {
       if (history.publicKey === senderKey) {
@@ -189,7 +191,18 @@ export function namePeer(idOrKey: string, name: string): void {
 export function grantAccess(peerKey: string, sessions: string[], caps: string[], encryptPub?: string): AccessGrant {
   const grants = getAccessGrants();
 
-  const existing = grants.find(g => g.peerKey === peerKey && !g.revoked);
+  // Resolve short ID to full public key if needed
+  let resolvedKey = peerKey;
+  const peer = findPeer(peerKey);
+  if (peer) {
+    resolvedKey = peer.publicKey;
+    if (!encryptPub && peer.encryptPub) {
+      encryptPub = peer.encryptPub;
+    }
+  }
+
+  // Find existing grant by resolved key
+  const existing = grants.find(g => g.peerKey === resolvedKey && !g.revoked);
   if (existing) {
     existing.sessions = Array.from(new Set([...existing.sessions, ...sessions]));
     existing.caps = Array.from(new Set([...existing.caps, ...caps]));
@@ -200,7 +213,7 @@ export function grantAccess(peerKey: string, sessions: string[], caps: string[],
 
   const grant: AccessGrant = {
     id: `grant-${Date.now()}`,
-    peerKey,
+    peerKey: resolvedKey,
     peerEncryptPub: encryptPub,
     sessions,
     caps,
