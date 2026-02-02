@@ -52,6 +52,18 @@ import {
   notifyGrantUpdate,
 } from "./discovery.js";
 import { setP2PConfig } from "./config.js";
+import { registerChannelHooks, registerAutoAcceptCommands, registerP2PSlashCommands } from "./channel-hooks.js";
+import {
+  cleanupExpiredRequests,
+  acceptPendingRequest,
+  createFriendAccept,
+  completeFriendship,
+  formatFriendAccept,
+  getPendingIncomingBySignature,
+  denyPendingRequest,
+} from "./friends.js";
+import { friendCommand } from "./cli-commands.js";
+import { syncAllFriendsToSecurity } from "./security-integration.js";
 
 // Setup winston logger
 const logger = winston.createLogger({
@@ -737,6 +749,9 @@ const plugin: WOPRPlugin = {
   version: "1.0.0",
   description: "P2P networking with Hyperswarm, identity, trust, and A2A tools",
 
+  // CLI commands
+  commands: [friendCommand],
+
   async init(pluginContext: WOPRPluginContext) {
     ctx = pluginContext;
     ctx.log.info("Initializing P2P plugin...");
@@ -910,8 +925,102 @@ const plugin: WOPRPlugin = {
         getTopics,
         getDiscoveredPeers,
         requestConnection,
+
+        // Friend request handling (for Discord button integration)
+        acceptFriendRequest: async (from: string, pubkey: string, encryptPub: string, signature: string, channelId: string) => {
+          // Find the pending request by signature
+          const pending = getPendingIncomingBySignature(signature);
+          if (!pending) {
+            // Check if we can find it by username
+            const result = acceptPendingRequest(from);
+            if (!result) {
+              throw new Error(`No pending friend request from @${from}`);
+            }
+            // Complete the accept using the original request
+            const config = ctx?.getConfig() as { botUsername?: string } | undefined;
+            const myUsername = config?.botUsername || "unknown";
+            const accept = createFriendAccept(result.request, myUsername);
+            return {
+              friend: result.friend,
+              acceptMessage: formatFriendAccept(accept),
+            };
+          }
+
+          // Accept the pending request
+          const result = acceptPendingRequest(from);
+          if (!result) {
+            throw new Error(`Failed to accept friend request from @${from}`);
+          }
+
+          // Get our bot username for the accept message
+          const config2 = ctx?.getConfig() as { botUsername?: string } | undefined;
+          const myUsername = config2?.botUsername || "unknown";
+          const accept = createFriendAccept(result.request, myUsername);
+
+          ctx?.log.info(`[p2p] Friend request from @${from} accepted via button`);
+
+          return {
+            friend: result.friend,
+            acceptMessage: formatFriendAccept(accept),
+          };
+        },
+
+        denyFriendRequest: async (from: string, signature: string) => {
+          // Try to find and remove by username or signature
+          const removed = denyPendingRequest(from) || denyPendingRequest(signature);
+
+          if (!removed) {
+            throw new Error(`No pending friend request from @${from}`);
+          }
+
+          ctx?.log.info(`[p2p] Friend request from @${from} denied via button`);
+        },
       });
       ctx.log.info("Registered P2P extension for inter-plugin use");
+    }
+
+    // Register friend protocol channel hooks
+    // This adds /friend, /accept, /friends, /unfriend, /grant commands to all channel providers
+    try {
+      registerChannelHooks(ctx as any);
+      registerAutoAcceptCommands(ctx as any);
+      ctx.log.info("Registered friend protocol channel hooks");
+    } catch (err) {
+      ctx.log.warn(`Failed to register channel hooks: ${err}`);
+    }
+
+    // Register P2P slash commands with Discord
+    // This merges with existing Discord commands so /friend, /accept, etc. show up
+    try {
+      // Get Discord config from main config or environment
+      const mainDiscordConfig = ctx.getMainConfig?.("discord") as { token?: string; clientId?: string; guildId?: string } | undefined;
+      const discordToken = mainDiscordConfig?.token || process.env.DISCORD_TOKEN;
+      const discordClientId = mainDiscordConfig?.clientId || process.env.DISCORD_CLIENT_ID;
+      const discordGuildId = mainDiscordConfig?.guildId || process.env.DISCORD_GUILD_ID;
+
+      if (discordToken && discordClientId) {
+        await registerP2PSlashCommands(
+          discordToken,
+          discordClientId,
+          discordGuildId,
+          ctx.log
+        );
+      } else {
+        ctx.log.info("[p2p] Discord config not available - P2P slash commands not registered");
+      }
+    } catch (err) {
+      ctx.log.warn(`[p2p] Failed to register P2P slash commands: ${err}`);
+    }
+
+    // Clean up expired friend requests on startup
+    cleanupExpiredRequests();
+
+    // Sync all existing friends to WOPR security model
+    try {
+      syncAllFriendsToSecurity();
+      ctx.log.info("Synced friends to WOPR security model");
+    } catch (err) {
+      ctx.log.warn(`Failed to sync friends to security model: ${err}`);
     }
 
     // Start UI server
@@ -991,3 +1100,7 @@ export * from "./p2p.js";
 export * from "./discovery.js";
 export * from "./config.js";
 export * from "./types.js";
+export * from "./friends.js";
+export * from "./channel-hooks.js";
+export * from "./cli-commands.js";
+export * from "./security-integration.js";

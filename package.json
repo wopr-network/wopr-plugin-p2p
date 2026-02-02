@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "build": "tsc",
+    "test": "node --import tsx --test tests/*.test.ts",
     "prepublishOnly": "npm run build"
   },
   "keywords": [
@@ -32,11 +33,13 @@
     "wopr": "^0.0.1"
   },
   "dependencies": {
+    "discord.js": "^14.25.1",
     "hyperswarm": "^4.7.15",
     "winston": "^3.11.0"
   },
   "devDependencies": {
     "@types/node": "^18.0.0",
+    "tsx": "^4.7.0",
     "typescript": "^5.0.0"
   }
 }

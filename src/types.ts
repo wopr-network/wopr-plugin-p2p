@@ -227,6 +227,7 @@ export interface WOPRPluginContext {
   registerA2AServer: (config: A2AServerConfig) => void;
   getPluginDir: () => string;
   getConfig: () => Record<string, unknown>;
+  getMainConfig: (key?: string) => Record<string, unknown> | undefined;
 
   // Session injection methods - critical for receiving P2P messages
   inject?: (session: string, message: string, options?: PluginInjectOptions) => Promise<string>;
@@ -277,10 +278,18 @@ export interface P2PExtension {
   requestConnection(peerId: string): Promise<ConnectionResult>;
 }
 
+export interface PluginCommand {
+  name: string;
+  description: string;
+  usage?: string;
+  handler: (ctx: WOPRPluginContext, args: string[]) => Promise<void>;
+}
+
 export interface WOPRPlugin {
   name: string;
   version: string;
   description: string;
+  commands?: PluginCommand[];
   init(ctx: WOPRPluginContext): Promise<void>;
   shutdown(): Promise<void>;
 }
@@ -327,4 +336,100 @@ export interface ConnectionResult {
   sessions?: string[];
   message?: string;
   reason?: string;
+}
+
+// ============================================================================
+// Friend Protocol Types
+// ============================================================================
+
+/**
+ * Friend request message - posted to public channel (Discord, Slack, etc.)
+ * All security comes from the cryptographic signature, not channel access control.
+ */
+export interface FriendRequest {
+  type: "FRIEND_REQUEST";
+  to: string;           // Channel username of target (e.g., Discord username)
+  from: string;         // Channel username of sender
+  pubkey: string;       // Ed25519 public key (base64)
+  encryptPub: string;   // X25519 encryption key (base64)
+  timestamp: number;    // Milliseconds since epoch
+  sig: string;          // Ed25519 signature over all fields
+}
+
+/**
+ * Friend accept message - posted to channel in response to request
+ */
+export interface FriendAccept {
+  type: "FRIEND_ACCEPT";
+  to: string;           // Original requester's channel username
+  from: string;         // Accepting agent's channel username
+  pubkey: string;       // Ed25519 public key (base64)
+  encryptPub: string;   // X25519 encryption key (base64)
+  requestSig: string;   // Signature from original request (proves what we're accepting)
+  timestamp: number;
+  sig: string;          // Ed25519 signature over all fields
+}
+
+/**
+ * Pending friend request waiting for approval
+ */
+export interface PendingFriendRequest {
+  request: FriendRequest;
+  receivedAt: number;
+  channel: string;      // Channel type where received (discord, slack, etc.)
+  channelId: string;    // Specific channel ID
+}
+
+/**
+ * Outgoing friend request awaiting acceptance
+ */
+export interface OutgoingFriendRequest {
+  request: FriendRequest;
+  sentAt: number;
+  channel: string;
+  channelId: string;
+}
+
+/**
+ * Established friendship
+ */
+export interface Friend {
+  name: string;                 // Their channel username
+  publicKey: string;            // Ed25519 pubkey
+  encryptPub: string;           // X25519 pubkey
+  sessionName: string;          // Dedicated session name for them
+  addedAt: number;
+  caps: string[];               // Capabilities granted (starts with ["message"])
+  channel: string;              // Channel type where friended
+}
+
+/**
+ * Friend grant - upgrade friend capabilities
+ */
+export interface FriendGrant {
+  pubkey: string;
+  caps: string[];           // What they can do
+  sessions: string[];       // Which sessions they can access
+  rateLimit?: {
+    messagesPerMinute: number;
+    injectsPerMinute?: number;
+  };
+}
+
+/**
+ * Auto-accept rule
+ */
+export interface AutoAcceptRule {
+  pattern: string;        // Glob pattern or exact match
+  addedAt: number;
+}
+
+/**
+ * Friends state (persisted)
+ */
+export interface FriendsState {
+  friends: Friend[];
+  pendingIn: PendingFriendRequest[];
+  pendingOut: OutgoingFriendRequest[];
+  autoAccept: AutoAcceptRule[];
 }
