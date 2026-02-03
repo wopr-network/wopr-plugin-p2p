@@ -63,7 +63,7 @@ import {
   denyPendingRequest,
 } from "./friends.js";
 import { friendCommand } from "./cli-commands.js";
-import { syncAllFriendsToSecurity } from "./security-integration.js";
+import { syncAllFriendsToSecurity, getFriendSecurityContext } from "./security-integration.js";
 
 // Setup winston logger
 const logger = winston.createLogger({
@@ -807,6 +807,12 @@ const plugin: WOPRPlugin = {
         ctx?.log.info(`P2P inject message: ${peerId} -> ${session}`);
         ctx?.log.info(`P2P message content: ${message.slice(0, 200)}...`);
 
+        // Get the friend's security context for proper trust level
+        const friendSecurity = peerKey ? getFriendSecurityContext(peerKey) : null;
+        const trustLevel = (friendSecurity?.trustLevel || "untrusted") as
+          "untrusted" | "semi-trusted" | "trusted" | "owner";
+        ctx?.log.info(`[p2p] Peer ${peerId} trust level: ${trustLevel} (sandboxed: ${trustLevel === "untrusted" || trustLevel === "semi-trusted"})`);
+
         // Invoke the AI and get response
         if (ctx?.inject) {
           try {
@@ -819,9 +825,19 @@ const plugin: WOPRPlugin = {
 
             const startTime = Date.now();
             try {
+              // Create security source with proper trust level for sandboxing
+              // Trust levels: untrusted/semi-trusted -> sandboxed, trusted/owner -> not sandboxed
+              const source = {
+                type: "p2p" as const,
+                trustLevel,
+                identity: { publicKey: peerKey || peerId },
+                grantedCapabilities: friendSecurity?.capabilities,
+              };
+
               const response = await ctx.inject(session, message, {
-                from: `p2p:${peerId}`,
+                from: `p2p:${peerKey || peerId}`,
                 channel: { type: "p2p", id: peerKey || "unknown" },
+                source, // Pass the security source with friend's trust level
               });
               const elapsed = Date.now() - startTime;
               ctx?.log.info(`[p2p] AI response generated (${response.length} chars) in ${elapsed}ms`);

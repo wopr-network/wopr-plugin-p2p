@@ -2,7 +2,7 @@
  * Security Integration Module
  *
  * Bridges P2P friend capabilities with WOPR's security model.
- * Maps friend caps (message, inject, inject.exec, etc.) to WOPR security capabilities.
+ * P2P peers can only have "message" or "inject" - both sandboxed, both untrusted.
  */
 
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from "fs";
@@ -18,54 +18,26 @@ const SECURITY_CONFIG_FILE = join(WOPR_HOME, "security.json");
 /**
  * Mapping from friend capabilities to WOPR security capabilities.
  *
- * Friend caps are simpler (user-facing), WOPR caps are granular (system-level).
+ * SIMPLE: Friends can either send messages or invoke AI. That's it.
+ * The SANDBOX controls what tools/commands are available, not capabilities.
  */
 export const FRIEND_CAP_TO_WOPR_CAPS: Record<string, string[]> = {
-  // message - fire and forget, no AI response
+  // message - fire and forget, no AI response (just logs to conversation)
   message: ["inject"],
 
-  // inject - can invoke AI and get response
+  // inject - can invoke AI and get response (AI runs in sandbox)
   inject: ["inject", "inject.tools"],
-
-  // inject.exec - can run shell commands
-  "inject.exec": ["inject", "inject.tools", "inject.exec"],
-
-  // inject.spawn - can create new sessions
-  "inject.spawn": ["inject", "inject.tools", "session.spawn"],
-
-  // inject.network - can make network requests
-  "inject.network": ["inject", "inject.tools", "inject.network"],
-
-  // admin - full access
-  admin: [
-    "inject",
-    "inject.tools",
-    "inject.exec",
-    "inject.network",
-    "session.spawn",
-    "session.history",
-    "cross.inject",
-    "cross.read",
-    "config.read",
-    "cron.manage",
-    "event.emit",
-    "a2a.call",
-    "memory.read",
-    "memory.write",
-  ],
 };
 
 /**
  * Trust level mapping for friends.
- * Friends start as untrusted but can be elevated.
+ *
+ * SECURITY: ALL P2P peers are untrusted and sandboxed. Period.
+ * The sandbox controls what's allowed, not trust levels.
  */
 export const FRIEND_CAP_TO_TRUST_LEVEL: Record<string, string> = {
-  message: "untrusted",     // Fire-and-forget only
-  inject: "semi-trusted",   // Can invoke AI
-  "inject.exec": "trusted", // Can run commands
-  "inject.spawn": "trusted",
-  "inject.network": "semi-trusted",
-  admin: "owner",           // Full access
+  message: "untrusted",  // Sandboxed, no workspace
+  inject: "untrusted",   // Sandboxed, no workspace
 };
 
 /**
@@ -166,9 +138,12 @@ export function syncFriendToSecurity(friend: Friend): void {
   const accessPattern = `p2p:${friend.publicKey}`;
 
   // Configure the friend's dedicated session
+  // P2P sessions always default to indexable: ["self"] - can only search own transcripts
+  // Even admin friends need explicit grants to see other sessions' transcripts
   config.sessions[friend.sessionName] = {
     access: [accessPattern],
     capabilities: woprCaps,
+    indexable: ["self"],
     description: `Dedicated session for friend @${friend.name}`,
   };
 
@@ -240,13 +215,8 @@ export function hasFriendCapability(publicKey: string, capability: string): bool
 
   if (!friend) return false;
 
-  // Check direct capability match
-  if (friend.caps.includes(capability)) return true;
-
-  // Check if admin (has all capabilities)
-  if (friend.caps.includes("admin")) return true;
-
-  return false;
+  // Check direct capability match - only "message" or "inject" are valid
+  return friend.caps.includes(capability);
 }
 
 /**
@@ -271,10 +241,12 @@ export function getFriendSecurityContext(publicKey: string): {
 
 /**
  * Validate that a friend can perform an action.
+ *
+ * SIMPLE: Friends can either send messages or invoke AI. That's it.
  */
 export function validateFriendAction(
   publicKey: string,
-  action: "message" | "inject" | "exec" | "spawn",
+  action: "message" | "inject",
   targetSession?: string
 ): { allowed: boolean; reason?: string } {
   const friends = getFriends();
@@ -289,26 +261,13 @@ export function validateFriendAction(
     return { allowed: false, reason: `Can only access session: ${friend.sessionName}` };
   }
 
-  // Map action to required capability
-  const actionToCap: Record<string, string> = {
-    message: "message",
-    inject: "inject",
-    exec: "inject.exec",
-    spawn: "inject.spawn",
-  };
-
-  const requiredCap = actionToCap[action];
-  if (!requiredCap) {
-    return { allowed: false, reason: `Unknown action: ${action}` };
-  }
-
-  // Check capability
-  if (friend.caps.includes(requiredCap) || friend.caps.includes("admin")) {
+  // Check capability - just message or inject
+  if (friend.caps.includes(action)) {
     return { allowed: true };
   }
 
   return {
     allowed: false,
-    reason: `Missing capability: ${requiredCap}. Current caps: ${friend.caps.join(", ")}`,
+    reason: `Missing capability: ${action}. Current caps: ${friend.caps.join(", ")}`,
   };
 }

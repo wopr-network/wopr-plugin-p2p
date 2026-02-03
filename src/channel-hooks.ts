@@ -123,10 +123,7 @@ const p2pCommands = [
         .setDescription("Capability to grant")
         .setRequired(true)
         .addChoices(
-          { name: "inject - Can invoke AI", value: "inject" },
-          { name: "inject.exec - Can run commands", value: "inject.exec" },
-          { name: "inject.spawn - Can spawn sessions", value: "inject.spawn" },
-          { name: "admin - Full access", value: "admin" }
+          { name: "inject - Can invoke AI (sandboxed)", value: "inject" }
         )
     ),
 ];
@@ -368,13 +365,13 @@ function registerGrantCommand(
       const cap = cmdCtx.args[1];
 
       if (!target || !cap) {
-        await cmdCtx.reply("Usage: /grant @username <capability>\nCapabilities: inject, inject.exec, inject.spawn, admin");
+        await cmdCtx.reply("Usage: /grant @username inject");
         return;
       }
 
       const cleanTarget = target.startsWith("@") ? target.slice(1) : target;
 
-      const validCaps = ["message", "inject", "inject.exec", "inject.spawn", "admin"];
+      const validCaps = ["message", "inject"];
       if (!validCaps.includes(cap)) {
         await cmdCtx.reply(`Invalid capability: ${cap}\nValid: ${validCaps.join(", ")}`);
         return;

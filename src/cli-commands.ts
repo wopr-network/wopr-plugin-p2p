@@ -113,11 +113,8 @@ Usage:
   wopr friend auto-accept remove <pattern>  Remove auto-accept rule
 
 Capabilities:
-  message      Fire-and-forget messages (default)
-  inject       Full inject with AI response
-  inject.exec  Can trigger shell commands
-  inject.spawn Can spawn new sessions
-  admin        Full access
+  message      Send to conversation (no AI response)
+  inject       Get AI response (sandboxed)
 
 Examples:
   wopr friend list
@@ -232,14 +229,14 @@ async function handleFriendRemove(ctx: WOPRPluginContext, args: string[]): Promi
 async function handleFriendGrant(ctx: WOPRPluginContext, args: string[]): Promise<void> {
   if (args.length < 2) {
     ctx.log.error("Usage: wopr friend grant <name> <capability>");
-    ctx.log.info("Capabilities: message, inject, inject.exec, inject.spawn, admin");
+    ctx.log.info("Capabilities: message, inject");
     return;
   }
 
   const name = args[0].startsWith("@") ? args[0].slice(1) : args[0];
   const cap = args[1];
 
-  const validCaps = ["message", "inject", "inject.exec", "inject.spawn", "admin"];
+  const validCaps = ["message", "inject"];
   if (!validCaps.includes(cap)) {
     ctx.log.error(`Invalid capability: ${cap}`);
     ctx.log.info(`Valid: ${validCaps.join(", ")}`);

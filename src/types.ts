@@ -214,11 +214,27 @@ export interface ChannelRef {
   id: string;
 }
 
+// Security source for injection (matches WOPR's InjectionSource)
+export interface InjectionSource {
+  type: "cli" | "daemon" | "plugin" | "cron" | "p2p" | "p2p.discovery" | "api" | "gateway";
+  trustLevel: "owner" | "trusted" | "semi-trusted" | "untrusted";
+  identity?: {
+    publicKey?: string;
+    pluginName?: string;
+    apiKeyId?: string;
+    gatewaySession?: string;
+  };
+  grantedCapabilities?: string[];
+  grantId?: string;
+}
+
 // Options for plugin inject
 export interface PluginInjectOptions {
   from?: string;
   channel?: ChannelRef;
   stream?: boolean;
+  /** Security source for proper sandboxing of untrusted peers */
+  source?: InjectionSource;
 }
 
 // WOPR Plugin Types

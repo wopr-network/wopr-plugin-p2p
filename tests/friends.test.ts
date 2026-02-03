@@ -245,7 +245,7 @@ describe("Friend Capability Management", () => {
   });
 
   it("should allow granting additional capabilities", () => {
-    // grantFriendCap adds capabilities like "inject", "inject.exec", etc.
+    // grantFriendCap adds "inject" capability (only "message" and "inject" are valid)
     assert.ok(true, "grantFriendCap function exists and is exported");
   });
 });
