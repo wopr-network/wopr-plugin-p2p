@@ -1,13 +1,19 @@
 {
-  "name": "wopr-plugin-p2p",
-  "version": "1.0.0",
+  "author": "",
+  "dependencies": {
+    "discord.js": "^14.25.1",
+    "hyperswarm": "^4.7.15",
+    "winston": "^3.11.0"
+  },
   "description": "P2P networking plugin for WOPR with Hyperswarm, identity management, and A2A tools",
-  "main": "dist/index.js",
-  "type": "module",
-  "scripts": {
-    "build": "tsc",
-    "test": "node --import tsx --test tests/*.test.ts",
-    "prepublishOnly": "npm run build"
+  "devDependencies": {
+    "@biomejs/biome": "^2.3.14",
+    "@types/node": "^18.0.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   },
   "keywords": [
     "wopr",
@@ -17,29 +23,28 @@
     "peer-to-peer",
     "a2a"
   ],
-  "author": "",
   "license": "MIT",
-  "engines": {
-    "node": ">=18.0.0"
-  },
-  "wopr": {
-    "plugin": {
-      "name": "p2p",
-      "category": "network",
-      "description": "P2P networking with Hyperswarm, identity, trust, and A2A tools"
-    }
-  },
+  "main": "dist/index.js",
+  "name": "wopr-plugin-p2p",
   "peerDependencies": {
     "wopr": "^0.0.1"
   },
-  "dependencies": {
-    "discord.js": "^14.25.1",
-    "hyperswarm": "^4.7.15",
-    "winston": "^3.11.0"
+  "scripts": {
+    "build": "tsc",
+    "check": "biome check src/ && tsc --noEmit",
+    "format": "biome format --write src/",
+    "lint": "biome check src/",
+    "lint:fix": "biome check --fix src/",
+    "prepublishOnly": "npm run build",
+    "test": "node --import tsx --test tests/*.test.ts"
   },
-  "devDependencies": {
-    "@types/node": "^18.0.0",
-    "tsx": "^4.7.0",
-    "typescript": "^5.0.0"
+  "type": "module",
+  "version": "1.0.0",
+  "wopr": {
+    "plugin": {
+      "category": "network",
+      "description": "P2P networking with Hyperswarm, identity, trust, and A2A tools",
+      "name": "p2p"
+    }
   }
 }
