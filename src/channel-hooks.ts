@@ -162,10 +162,8 @@ export async function registerP2PSlashCommands(
 		SlashCommandBuilder = discordjs.SlashCommandBuilder;
 		REST = discordjs.REST;
 		Routes = discordjs.Routes;
-	} catch {
-		logger.info(
-			"[p2p] discord.js not available — skipping slash command registration",
-		);
+	} catch (err: any) {
+		console.warn("discord.js not available (optional peer dependency):", err.message);
 		return;
 	}
 
