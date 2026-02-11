@@ -1,7 +1,6 @@
 {
   "author": "",
   "dependencies": {
-    "discord.js": "^14.25.1",
     "hyperswarm": "^4.7.15",
     "winston": "^3.11.0"
   },
@@ -27,7 +26,13 @@
   "main": "dist/index.js",
   "name": "wopr-plugin-p2p",
   "peerDependencies": {
+    "discord.js": "^14.25.1",
     "wopr": "^0.0.1"
+  },
+  "peerDependenciesMeta": {
+    "discord.js": {
+      "optional": true
+    }
   },
   "scripts": {
     "build": "tsc",
