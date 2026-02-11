@@ -26,8 +26,7 @@
   "main": "dist/index.js",
   "name": "wopr-plugin-p2p",
   "peerDependencies": {
-    "discord.js": "^14.25.1",
-    "wopr": "^0.0.1"
+    "discord.js": "^14.25.1"
   },
   "peerDependenciesMeta": {
     "discord.js": {
