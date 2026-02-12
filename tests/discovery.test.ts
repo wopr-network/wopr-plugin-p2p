@@ -5,7 +5,7 @@
  * and grant notifications. Mocks Hyperswarm for isolation.
  */
 
-import { describe, it, beforeEach, afterEach, mock } from "node:test";
+import { describe, it } from "node:test";
 import assert from "node:assert";
 
 // We need to mock identity and trust before importing discovery.
@@ -30,15 +30,14 @@ describe("Discovery Module - State Management", () => {
   describe("getTopics", () => {
     it("should return empty array when no topics joined", () => {
       const topics = getTopics();
-      assert.ok(Array.isArray(topics));
-      // May have topics from previous test runs, so just verify it's an array
+      assert.deepStrictEqual(topics, []);
     });
   });
 
   describe("getDiscoveredPeers", () => {
     it("should return empty array when no peers discovered", () => {
       const peers = getDiscoveredPeers();
-      assert.ok(Array.isArray(peers));
+      assert.deepStrictEqual(peers, []);
     });
 
     it("should accept an optional topic filter parameter", () => {

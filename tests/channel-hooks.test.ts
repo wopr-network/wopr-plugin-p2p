@@ -5,7 +5,7 @@
  * auto-accept command handling with mock channel providers.
  */
 
-import { describe, it, beforeEach } from "node:test";
+import { describe, it } from "node:test";
 import assert from "node:assert";
 
 import { registerChannelHooks, registerAutoAcceptCommands } from "../src/channel-hooks.js";

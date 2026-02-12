@@ -4,14 +4,16 @@
  * Tests the CLI command handler, parseFlags utility, and all friend subcommands.
  */
 
-import { describe, it, beforeEach, afterEach, mock } from "node:test";
+import { describe, it, afterEach } from "node:test";
 import assert from "node:assert";
-
-// We need to mock friends.js and identity.js before importing cli-commands
-// Since node:test doesn't have vi.mock, we test via the exported handler
-// and use mock contexts to capture output.
+import { mkdirSync, rmSync } from "node:fs";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
 
 import { handleFriendCommand, friendCommand } from "../src/cli-commands.js";
+
+/** Temporary data directory for tests that touch friends state */
+const TEST_DATA_DIR = join(tmpdir(), "wopr-p2p-test-cli-" + process.pid);
 
 /** Create a mock WOPRPluginContext that captures log output */
 function createMockCtx() {
@@ -37,6 +39,19 @@ function createMockCtx() {
   };
 }
 
+/**
+ * Set up isolated test data directory for friends state.
+ * Returns a cleanup function.
+ */
+function useTestDataDir() {
+  mkdirSync(TEST_DATA_DIR, { recursive: true });
+  process.env.WOPR_P2P_DATA_DIR = TEST_DATA_DIR;
+  return () => {
+    delete process.env.WOPR_P2P_DATA_DIR;
+    rmSync(TEST_DATA_DIR, { recursive: true, force: true });
+  };
+}
+
 describe("friendCommand export", () => {
   it("should export command metadata", () => {
     assert.strictEqual(friendCommand.name, "friend");
@@ -48,6 +63,15 @@ describe("friendCommand export", () => {
 });
 
 describe("handleFriendCommand", () => {
+  let cleanup: (() => void) | undefined;
+
+  afterEach(() => {
+    if (cleanup) {
+      cleanup();
+      cleanup = undefined;
+    }
+  });
+
   describe("help / unknown subcommand", () => {
     it("should show help when no subcommand given", async () => {
       const { ctx, logs } = createMockCtx();
@@ -69,11 +93,11 @@ describe("handleFriendCommand", () => {
 
   describe("list subcommand", () => {
     it("should handle empty friends list", async () => {
+      cleanup = useTestDataDir();
       const { ctx, logs } = createMockCtx();
       await handleFriendCommand(ctx as any, ["list"]);
       const output = logs.join("\n");
-      // Either shows "No friends" or a table - depends on actual friends state
-      assert.ok(output.length > 0, "Should produce some output");
+      assert.ok(output.includes("No friends"), "Should show no friends message");
     });
   });
 
@@ -97,10 +121,10 @@ describe("handleFriendCommand", () => {
     });
 
     it("should strip @ prefix from name", async () => {
+      cleanup = useTestDataDir();
       const { ctx, errors, logs } = createMockCtx();
-      // This will fail to find a pending request, but should not crash
       await handleFriendCommand(ctx as any, ["accept", "@hope"]);
-      // Either logs an error about no pending request or logs success
+      // No pending request in empty test state => error about no pending request
       const allOutput = [...errors, ...logs].join("\n");
       assert.ok(allOutput.length > 0, "Should produce output");
     });
@@ -114,6 +138,7 @@ describe("handleFriendCommand", () => {
     });
 
     it("should also work as 'unfriend'", async () => {
+      cleanup = useTestDataDir();
       const { ctx, errors, logs } = createMockCtx();
       await handleFriendCommand(ctx as any, ["unfriend", "nobody"]);
       const allOutput = [...errors, ...logs].join("\n");
@@ -122,6 +147,7 @@ describe("handleFriendCommand", () => {
     });
 
     it("should strip @ prefix", async () => {
+      cleanup = useTestDataDir();
       const { ctx, errors, logs } = createMockCtx();
       await handleFriendCommand(ctx as any, ["remove", "@test"]);
       const allOutput = [...errors, ...logs].join("\n");
@@ -150,8 +176,9 @@ describe("handleFriendCommand", () => {
     });
 
     it("should accept valid capabilities", async () => {
+      cleanup = useTestDataDir();
       const { ctx, errors, logs } = createMockCtx();
-      // Will fail because friend not found, but should not reject the cap
+      // Will fail because friend not found in empty test state, but should not reject the cap
       await handleFriendCommand(ctx as any, ["grant", "hope", "inject"]);
       const allOutput = [...errors, ...logs].join("\n");
       // Should not contain "Invalid capability"
@@ -160,6 +187,7 @@ describe("handleFriendCommand", () => {
     });
 
     it("should accept message capability", async () => {
+      cleanup = useTestDataDir();
       const { ctx, errors } = createMockCtx();
       await handleFriendCommand(ctx as any, ["grant", "hope", "message"]);
       assert.ok(!errors.some(e => e.includes("Invalid capability")),
@@ -183,15 +211,16 @@ describe("handleFriendCommand", () => {
 
   describe("auto-accept subcommand", () => {
     it("should list rules when no action given", async () => {
+      cleanup = useTestDataDir();
       const { ctx, logs } = createMockCtx();
       await handleFriendCommand(ctx as any, ["auto-accept"]);
       const output = logs.join("\n");
-      // Either shows "No auto-accept rules" or lists them
       assert.ok(output.includes("auto-accept") || output.includes("No auto-accept"),
         "Should show auto-accept info");
     });
 
     it("should list rules with explicit list action", async () => {
+      cleanup = useTestDataDir();
       const { ctx, logs } = createMockCtx();
       await handleFriendCommand(ctx as any, ["auto-accept", "list"]);
       const output = logs.join("\n");
@@ -217,29 +246,20 @@ describe("handleFriendCommand", () => {
     });
 
     it("should add and remove auto-accept rules", async () => {
-      // This test writes to the friends state file. If the P2P data directory
-      // is not writable (e.g., /data/p2p in a non-container env), skip gracefully.
-      try {
-        const { ctx: ctx1, logs: logs1 } = createMockCtx();
-        await handleFriendCommand(ctx1 as any, ["auto-accept", "add", "test-pattern-cli"]);
-        assert.ok(logs1.some(l => l.includes("Added")), "Should confirm add");
+      cleanup = useTestDataDir();
+      const { ctx: ctx1, logs: logs1 } = createMockCtx();
+      await handleFriendCommand(ctx1 as any, ["auto-accept", "add", "test-pattern-cli"]);
+      assert.ok(logs1.some(l => l.includes("Added")), "Should confirm add");
 
-        const { ctx: ctx2, logs: logs2 } = createMockCtx();
-        await handleFriendCommand(ctx2 as any, ["auto-accept", "remove", "test-pattern-cli"]);
-        assert.ok(logs2.some(l => l.includes("Removed")), "Should confirm remove");
-      } catch (err: any) {
-        if (err?.code === "EACCES") {
-          // Data directory not writable - skip this test path
-          assert.ok(true, "Skipped: P2P data directory not writable");
-        } else {
-          throw err;
-        }
-      }
+      const { ctx: ctx2, logs: logs2 } = createMockCtx();
+      await handleFriendCommand(ctx2 as any, ["auto-accept", "remove", "test-pattern-cli"]);
+      assert.ok(logs2.some(l => l.includes("Removed")), "Should confirm remove");
     });
   });
 
   describe("pending subcommand", () => {
     it("should show pending requests status", async () => {
+      cleanup = useTestDataDir();
       const { ctx, logs } = createMockCtx();
       await handleFriendCommand(ctx as any, ["pending"]);
       const output = logs.join("\n");

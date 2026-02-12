@@ -4,17 +4,11 @@
  * Tests signature generation, verification, message parsing, and friend management.
  */
 
-import { describe, it, beforeEach, afterEach } from "node:test";
+import { describe, it, afterEach } from "node:test";
 import assert from "node:assert";
-import { existsSync, rmSync, mkdirSync } from "fs";
-import { join } from "path";
-import { homedir } from "os";
-
-// Mock the identity before importing friends module
-const TEST_DATA_DIR = join(homedir(), ".wopr-test", "p2p");
-
-// We'll need to set up test fixtures that mock the identity and trust modules
-// For now, we test the parsing and formatting functions which don't require identity
+import { mkdirSync, rmSync } from "node:fs";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
 
 import {
   parseFriendRequest,
@@ -22,6 +16,22 @@ import {
   formatFriendRequest,
   formatFriendAccept,
 } from "../src/friends.js";
+
+/** Temporary data directory for tests that touch friends state */
+const TEST_DATA_DIR = join(tmpdir(), "wopr-p2p-test-friends-" + process.pid);
+
+/**
+ * Set up isolated test data directory for friends state.
+ * Returns a cleanup function.
+ */
+function useTestDataDir() {
+  mkdirSync(TEST_DATA_DIR, { recursive: true });
+  process.env.WOPR_P2P_DATA_DIR = TEST_DATA_DIR;
+  return () => {
+    delete process.env.WOPR_P2P_DATA_DIR;
+    rmSync(TEST_DATA_DIR, { recursive: true, force: true });
+  };
+}
 
 describe("Friend Protocol Message Parsing", () => {
   describe("parseFriendRequest", () => {
@@ -170,7 +180,6 @@ describe("Friend Protocol Message Formatting", () => {
 
 describe("Session Name Generation", () => {
   it("should generate deterministic session names", async () => {
-    // Dynamic import to get the function
     const { getFriendSessionName } = await import("../src/friends.js");
 
     const name = "hope";
@@ -191,10 +200,19 @@ describe("Session Name Generation", () => {
 });
 
 describe("Auto-Accept Rules", () => {
+  let cleanup: (() => void) | undefined;
+
+  afterEach(() => {
+    if (cleanup) {
+      cleanup();
+      cleanup = undefined;
+    }
+  });
+
   it("should match exact username", async () => {
+    cleanup = useTestDataDir();
     const { shouldAutoAccept, addAutoAcceptRule, removeAutoAcceptRule } = await import("../src/friends.js");
 
-    // Add rule for specific user
     addAutoAcceptRule("hope");
 
     assert.strictEqual(shouldAutoAccept("hope"), true);
@@ -205,9 +223,9 @@ describe("Auto-Accept Rules", () => {
   });
 
   it("should match wildcard pattern", async () => {
+    cleanup = useTestDataDir();
     const { shouldAutoAccept, addAutoAcceptRule, removeAutoAcceptRule } = await import("../src/friends.js");
 
-    // Add wildcard rule
     addAutoAcceptRule("*");
 
     assert.strictEqual(shouldAutoAccept("hope"), true);
@@ -219,9 +237,9 @@ describe("Auto-Accept Rules", () => {
   });
 
   it("should match OR pattern", async () => {
+    cleanup = useTestDataDir();
     const { shouldAutoAccept, addAutoAcceptRule, removeAutoAcceptRule } = await import("../src/friends.js");
 
-    // Add OR pattern
     addAutoAcceptRule("hope|wopr|claude");
 
     assert.strictEqual(shouldAutoAccept("hope"), true);
@@ -235,9 +253,6 @@ describe("Auto-Accept Rules", () => {
 });
 
 describe("Friend Capability Management", () => {
-  // These tests would require more setup to mock the file system
-  // and identity system. Marking as placeholders.
-
   it("should have default message capability for new friends", () => {
     // New friends start with ["message"] capability
     // This is enforced in completeFriendship and acceptPendingRequest

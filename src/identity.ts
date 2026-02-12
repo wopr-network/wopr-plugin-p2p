@@ -21,24 +21,30 @@ import { homedir } from "os";
 import { join } from "path";
 import type { Identity, InviteToken, EphemeralKeyPair, KeyRotation } from "./types.js";
 
-// Data directory for P2P plugin
-const P2P_DATA_DIR = join(homedir(), ".wopr", "p2p");
-const IDENTITY_FILE = join(P2P_DATA_DIR, "identity.json");
+// Data directory for P2P plugin (overridable via WOPR_P2P_DATA_DIR for testing)
+function getP2PDataDir(): string {
+  return process.env.WOPR_P2P_DATA_DIR ?? join(homedir(), ".wopr", "p2p");
+}
+function getIdentityFile(): string {
+  return join(getP2PDataDir(), "identity.json");
+}
 
 function ensureDataDir(): void {
-  if (!existsSync(P2P_DATA_DIR)) {
-    mkdirSync(P2P_DATA_DIR, { recursive: true, mode: 0o700 });
+  const dir = getP2PDataDir();
+  if (!existsSync(dir)) {
+    mkdirSync(dir, { recursive: true, mode: 0o700 });
   }
 }
 
 export function getIdentity(): Identity | null {
-  if (!existsSync(IDENTITY_FILE)) return null;
-  return JSON.parse(readFileSync(IDENTITY_FILE, "utf-8"));
+  const file = getIdentityFile();
+  if (!existsSync(file)) return null;
+  return JSON.parse(readFileSync(file, "utf-8"));
 }
 
 export function saveIdentity(identity: Identity): void {
   ensureDataDir();
-  writeFileSync(IDENTITY_FILE, JSON.stringify(identity, null, 2), { mode: 0o600 });
+  writeFileSync(getIdentityFile(), JSON.stringify(identity, null, 2), { mode: 0o600 });
 }
 
 export function shortKey(publicKey: string): string {

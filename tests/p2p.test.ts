@@ -7,8 +7,11 @@
  * (requires live DHT). We test the validation and error paths.
  */
 
-import { describe, it, beforeEach, afterEach, mock } from "node:test";
+import { describe, it, afterEach } from "node:test";
 import assert from "node:assert";
+import { mkdirSync, rmSync } from "node:fs";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
 
 import {
   setP2PLogger,
@@ -18,10 +21,23 @@ import {
   claimToken,
   sendKeyRotation,
 } from "../src/p2p.js";
-import { EXIT_INVALID, EXIT_REJECTED } from "../src/types.js";
+import { EXIT_INVALID } from "../src/types.js";
 
-// Save and restore identity to avoid test interference
-// These tests rely on the default state (no identity) for validation tests.
+/** Temporary data directory for tests — empty, so no identity exists */
+const TEST_DATA_DIR = join(tmpdir(), "wopr-p2p-test-p2p-" + process.pid);
+
+/**
+ * Set up isolated test data directory (empty, so getIdentity() returns null).
+ * Returns a cleanup function.
+ */
+function useTestDataDir() {
+  mkdirSync(TEST_DATA_DIR, { recursive: true });
+  process.env.WOPR_P2P_DATA_DIR = TEST_DATA_DIR;
+  return () => {
+    delete process.env.WOPR_P2P_DATA_DIR;
+    rmSync(TEST_DATA_DIR, { recursive: true, force: true });
+  };
+}
 
 describe("P2P Module - Logger", () => {
   it("should accept a logger function via setP2PLogger", () => {
@@ -38,48 +54,44 @@ describe("P2P Module - Logger", () => {
 });
 
 describe("P2P Module - createP2PListener", () => {
+  let cleanup: (() => void) | undefined;
+
+  afterEach(() => {
+    if (cleanup) {
+      cleanup();
+      cleanup = undefined;
+    }
+  });
+
   it("should return null and log when no identity exists", async () => {
+    cleanup = useTestDataDir();
     const logMessages: string[] = [];
     const callbacks = {
       onLog: (msg: string) => logMessages.push(msg),
     };
 
-    // If no identity file exists, getIdentity() returns null
-    // and createP2PListener returns null
     const swarm = createP2PListener(callbacks);
 
-    // If identity IS loaded (from a real ~/.wopr/p2p/identity.json),
-    // the swarm will be non-null. We handle both cases.
-    if (swarm === null) {
-      assert.ok(logMessages.some(m => m.includes("No identity")));
-    } else {
-      // Identity exists on this machine - clean up the swarm
-      assert.ok(swarm, "Swarm was created because identity exists");
-      await swarm.destroy();
-    }
+    // With empty test data dir, no identity exists => swarm is null
+    assert.strictEqual(swarm, null, "Swarm should be null when no identity exists");
+    assert.ok(logMessages.some(m => m.includes("No identity")));
   });
 
-  it("should accept legacy function signature", () => {
+  it("should accept legacy function signature", async () => {
+    cleanup = useTestDataDir();
     const logMessages: string[] = [];
     const onInject = async (_session: string, _message: string) => {};
     const onLog = (msg: string) => logMessages.push(msg);
 
     const swarm = createP2PListener(onInject, onLog);
 
-    if (swarm === null) {
-      assert.ok(logMessages.some(m => m.includes("No identity")));
-    } else {
-      // Clean up
-      swarm.destroy();
-    }
+    assert.strictEqual(swarm, null, "Swarm should be null when no identity exists");
+    assert.ok(logMessages.some(m => m.includes("No identity")));
   });
 });
 
 describe("P2P Module - sendP2PLog validation", () => {
   it("should return EXIT_INVALID when no identity exists", async () => {
-    // This test depends on whether the test machine has an identity.
-    // If no identity, getIdentity() returns null -> EXIT_INVALID.
-    // If identity exists, findPeer will fail -> EXIT_INVALID.
     const result = await sendP2PLog("nonexistent-peer", "test-session", "hello", 1000);
     assert.strictEqual(result.code, EXIT_INVALID);
   });

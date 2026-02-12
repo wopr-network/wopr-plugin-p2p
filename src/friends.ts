@@ -27,29 +27,37 @@ import { getIdentity, shortKey } from "./identity.js";
 import { grantAccess, addPeer } from "./trust.js";
 import { syncFriendToSecurity, removeFriendFromSecurity } from "./security-integration.js";
 
-// Data directory for P2P plugin
-const P2P_DATA_DIR = existsSync("/data") ? "/data/p2p" : join(homedir(), ".wopr", "p2p");
-const FRIENDS_FILE = join(P2P_DATA_DIR, "friends.json");
+// Data directory for P2P plugin (overridable via WOPR_P2P_DATA_DIR for testing)
+function getP2PDataDir(): string {
+  return process.env.WOPR_P2P_DATA_DIR
+    ?? (existsSync("/data") ? "/data/p2p" : join(homedir(), ".wopr", "p2p"));
+}
+
+function getFriendsFile(): string {
+  return join(getP2PDataDir(), "friends.json");
+}
 
 // Request expiry time (5 minutes)
 const REQUEST_EXPIRY_MS = 5 * 60 * 1000;
 
 function ensureDataDir(): void {
-  if (!existsSync(P2P_DATA_DIR)) {
-    mkdirSync(P2P_DATA_DIR, { recursive: true, mode: 0o700 });
+  const dir = getP2PDataDir();
+  if (!existsSync(dir)) {
+    mkdirSync(dir, { recursive: true, mode: 0o700 });
   }
 }
 
 function loadFriendsState(): FriendsState {
-  if (!existsSync(FRIENDS_FILE)) {
+  const file = getFriendsFile();
+  if (!existsSync(file)) {
     return { friends: [], pendingIn: [], pendingOut: [], autoAccept: [] };
   }
-  return JSON.parse(readFileSync(FRIENDS_FILE, "utf-8"));
+  return JSON.parse(readFileSync(file, "utf-8"));
 }
 
 function saveFriendsState(state: FriendsState): void {
   ensureDataDir();
-  writeFileSync(FRIENDS_FILE, JSON.stringify(state, null, 2), { mode: 0o600 });
+  writeFileSync(getFriendsFile(), JSON.stringify(state, null, 2), { mode: 0o600 });
 }
 
 /**
