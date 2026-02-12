@@ -1,6 +1,20 @@
 /**
  * P2P Plugin Types
+ *
+ * Shared plugin types are imported from @wopr-network/plugin-types.
+ * P2P-specific types are defined here.
  */
+
+// Re-export shared types used by other files in this plugin
+export type {
+  WOPRPlugin,
+  WOPRPluginContext,
+  PluginCommand,
+  ChannelRef,
+  A2AToolResult,
+  A2AServerConfig,
+  PluginInjectOptions,
+} from "@wopr-network/plugin-types";
 
 // Exit codes
 export const EXIT_OK = 0;
@@ -179,96 +193,21 @@ export interface TopicState {
   peers: Map<string, Profile>;
 }
 
-// A2A Tool Types
-export interface A2AToolResult {
-  content: Array<{
-    type: "text" | "image" | "resource";
-    text?: string;
-    data?: string;
-    mimeType?: string;
-  }>;
-  isError?: boolean;
-}
-
 // Context passed to A2A tool handlers by WOPR core
+// Extended from shared A2AToolDefinition to include P2P-specific context parameter
 export interface A2AToolContext {
   sessionName: string;  // The WOPR session calling this tool
 }
 
-export interface A2AToolDefinition {
+/**
+ * P2P-specific A2A tool definition that extends the shared type
+ * with an optional context parameter for session tracking.
+ */
+export interface P2PToolDefinition {
   name: string;
   description: string;
   inputSchema: Record<string, unknown>;
-  handler: (args: Record<string, unknown>, context?: A2AToolContext) => Promise<A2AToolResult>;
-}
-
-export interface A2AServerConfig {
-  name: string;
-  version?: string;
-  tools: A2AToolDefinition[];
-}
-
-// Channel reference for message logging
-export interface ChannelRef {
-  type: string;
-  id: string;
-}
-
-// Security source for injection (matches WOPR's InjectionSource)
-export interface InjectionSource {
-  type: "cli" | "daemon" | "plugin" | "cron" | "p2p" | "p2p.discovery" | "api" | "gateway";
-  trustLevel: "owner" | "trusted" | "semi-trusted" | "untrusted";
-  identity?: {
-    publicKey?: string;
-    pluginName?: string;
-    apiKeyId?: string;
-    gatewaySession?: string;
-  };
-  grantedCapabilities?: string[];
-  grantId?: string;
-}
-
-// Options for plugin inject
-export interface PluginInjectOptions {
-  from?: string;
-  channel?: ChannelRef;
-  stream?: boolean;
-  /** Security source for proper sandboxing of untrusted peers */
-  source?: InjectionSource;
-}
-
-// WOPR Plugin Types
-export interface WOPRPluginContext {
-  log: { info: (msg: string) => void; error: (msg: string) => void; warn: (msg: string) => void };
-  registerA2AServer: (config: A2AServerConfig) => void;
-  getPluginDir: () => string;
-  getConfig: () => Record<string, unknown>;
-  getMainConfig: (key?: string) => Record<string, unknown> | undefined;
-
-  // Session injection methods - critical for receiving P2P messages
-  inject?: (session: string, message: string, options?: PluginInjectOptions) => Promise<string>;
-  logMessage?: (session: string, message: string, options?: { from?: string; channel?: ChannelRef }) => void;
-  getSessions?: () => string[];
-  cancelInject?: (session: string) => void;
-
-  registerUiComponent?: (component: {
-    id: string;
-    title: string;
-    moduleUrl: string;
-    slot: string;
-    description: string;
-  }) => void;
-  registerWebUiExtension?: (extension: {
-    id: string;
-    title: string;
-    url: string;
-    description: string;
-    category: string;
-  }) => void;
-  // Plugin extensions - expose APIs to other plugins
-  registerExtension?: (name: string, extension: unknown) => void;
-  unregisterExtension?: (name: string) => void;
-  getExtension?: <T = unknown>(name: string) => T | undefined;
+  handler: (args: Record<string, unknown>, context?: A2AToolContext) => Promise<import("@wopr-network/plugin-types").A2AToolResult>;
 }
 
 // P2P Extension API - exposed to other plugins via ctx.getExtension("p2p")
@@ -292,22 +231,6 @@ export interface P2PExtension {
   getTopics(): string[];
   getDiscoveredPeers(topic?: string): DiscoveredPeer[];
   requestConnection(peerId: string): Promise<ConnectionResult>;
-}
-
-export interface PluginCommand {
-  name: string;
-  description: string;
-  usage?: string;
-  handler: (ctx: WOPRPluginContext, args: string[]) => Promise<void>;
-}
-
-export interface WOPRPlugin {
-  name: string;
-  version: string;
-  description: string;
-  commands?: PluginCommand[];
-  init(ctx: WOPRPluginContext): Promise<void>;
-  shutdown(): Promise<void>;
 }
 
 // P2P Send/Claim Results

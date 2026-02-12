@@ -1,6 +1,7 @@
 {
   "author": "",
   "dependencies": {
+    "@wopr-network/plugin-types": "^0.1.0",
     "hyperswarm": "^4.7.15",
     "winston": "^3.11.0"
   },
