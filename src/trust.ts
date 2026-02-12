@@ -10,35 +10,47 @@ import { join } from "path";
 import type { AccessGrant, Peer, KeyRotation, KeyHistory } from "./types.js";
 import { getIdentity, initIdentity, shortKey, parseInviteToken, verifyKeyRotation } from "./identity.js";
 
-// Data directory for P2P plugin - use /data if it exists (container), otherwise ~/.wopr
-const P2P_DATA_DIR = existsSync("/data") ? "/data/p2p" : join(homedir(), ".wopr", "p2p");
-const ACCESS_FILE = join(P2P_DATA_DIR, "access.json");
-const PEERS_FILE = join(P2P_DATA_DIR, "peers.json");
+// Data directory for P2P plugin (overridable via WOPR_P2P_DATA_DIR for testing)
+function getP2PDataDir(): string {
+  return process.env.WOPR_P2P_DATA_DIR
+    ?? (existsSync("/data") ? "/data/p2p" : join(homedir(), ".wopr", "p2p"));
+}
+
+function getAccessFile(): string {
+  return join(getP2PDataDir(), "access.json");
+}
+
+function getPeersFile(): string {
+  return join(getP2PDataDir(), "peers.json");
+}
 
 function ensureDataDir(): void {
-  if (!existsSync(P2P_DATA_DIR)) {
-    mkdirSync(P2P_DATA_DIR, { recursive: true, mode: 0o700 });
+  const dir = getP2PDataDir();
+  if (!existsSync(dir)) {
+    mkdirSync(dir, { recursive: true, mode: 0o700 });
   }
 }
 
 export function getAccessGrants(): AccessGrant[] {
-  if (!existsSync(ACCESS_FILE)) return [];
-  return JSON.parse(readFileSync(ACCESS_FILE, "utf-8"));
+  const file = getAccessFile();
+  if (!existsSync(file)) return [];
+  return JSON.parse(readFileSync(file, "utf-8"));
 }
 
 export function saveAccessGrants(grants: AccessGrant[]): void {
   ensureDataDir();
-  writeFileSync(ACCESS_FILE, JSON.stringify(grants, null, 2), { mode: 0o600 });
+  writeFileSync(getAccessFile(), JSON.stringify(grants, null, 2), { mode: 0o600 });
 }
 
 export function getPeers(): Peer[] {
-  if (!existsSync(PEERS_FILE)) return [];
-  return JSON.parse(readFileSync(PEERS_FILE, "utf-8"));
+  const file = getPeersFile();
+  if (!existsSync(file)) return [];
+  return JSON.parse(readFileSync(file, "utf-8"));
 }
 
 export function savePeers(peers: Peer[]): void {
   ensureDataDir();
-  writeFileSync(PEERS_FILE, JSON.stringify(peers, null, 2), { mode: 0o600 });
+  writeFileSync(getPeersFile(), JSON.stringify(peers, null, 2), { mode: 0o600 });
 }
 
 /**
