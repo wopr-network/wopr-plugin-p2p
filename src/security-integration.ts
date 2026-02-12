@@ -11,9 +11,13 @@ import { join } from "path";
 import type { Friend } from "./types.js";
 import { getFriends, getFriend } from "./friends.js";
 
-// WOPR home directory
-const WOPR_HOME = process.env.WOPR_HOME || join(homedir(), "wopr");
-const SECURITY_CONFIG_FILE = join(WOPR_HOME, "security.json");
+// WOPR home directory — computed lazily so tests can override WOPR_HOME
+function getWoprHome(): string {
+  return process.env.WOPR_HOME || join(homedir(), "wopr");
+}
+function getSecurityConfigFile(): string {
+  return join(getWoprHome(), "security.json");
+}
 
 /**
  * Mapping from friend capabilities to WOPR security capabilities.
@@ -44,11 +48,12 @@ export const FRIEND_CAP_TO_TRUST_LEVEL: Record<string, string> = {
  * Load WOPR security configuration.
  */
 export function loadSecurityConfig(): any {
-  if (!existsSync(SECURITY_CONFIG_FILE)) {
+  const configFile = getSecurityConfigFile();
+  if (!existsSync(configFile)) {
     return null;
   }
   try {
-    return JSON.parse(readFileSync(SECURITY_CONFIG_FILE, "utf-8"));
+    return JSON.parse(readFileSync(configFile, "utf-8"));
   } catch {
     return null;
   }
@@ -58,11 +63,11 @@ export function loadSecurityConfig(): any {
  * Save WOPR security configuration.
  */
 export function saveSecurityConfig(config: any): void {
-  const dir = WOPR_HOME;
+  const dir = getWoprHome();
   if (!existsSync(dir)) {
     mkdirSync(dir, { recursive: true });
   }
-  writeFileSync(SECURITY_CONFIG_FILE, JSON.stringify(config, null, 2));
+  writeFileSync(getSecurityConfigFile(), JSON.stringify(config, null, 2));
 }
 
 /**
