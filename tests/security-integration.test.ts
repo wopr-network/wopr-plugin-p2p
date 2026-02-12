@@ -121,9 +121,18 @@ describe("WOPR Capabilities", () => {
 });
 
 describe("Security Config Persistence", () => {
-  // NOTE: WOPR_HOME and SECURITY_CONFIG_FILE are constants computed at module
-  // load time. We test save/load by round-tripping through the module's own
-  // functions rather than controlling the file path directly.
+  let cleanup: (() => void) | undefined;
+
+  beforeEach(() => {
+    cleanup = useTestDirs();
+  });
+
+  afterEach(() => {
+    if (cleanup) {
+      cleanup();
+      cleanup = undefined;
+    }
+  });
 
   describe("saveSecurityConfig / loadSecurityConfig", () => {
     it("should round-trip save and load config", () => {
