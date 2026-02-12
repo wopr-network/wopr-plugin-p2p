@@ -902,12 +902,10 @@ const plugin: WOPRPlugin = {
     }
 
     // Register A2A tools
-    // Cast P2PToolDefinition[] to the shared A2AToolDefinition[] since P2P tools
-    // extend the shared type with an optional context parameter
     const a2aConfig: A2AServerConfig = {
       name: "p2p",
       version: "1.0.0",
-      tools: p2pTools as unknown as A2AServerConfig["tools"],
+      tools: p2pTools as A2AServerConfig["tools"],
     };
 
     if (ctx.registerA2AServer) {

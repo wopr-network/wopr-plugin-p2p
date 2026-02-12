@@ -5,6 +5,8 @@
  * P2P-specific types are defined here.
  */
 
+import type { A2AToolDefinition } from "@wopr-network/plugin-types";
+
 // Re-export shared types used by other files in this plugin
 export type {
   WOPRPlugin,
@@ -12,6 +14,7 @@ export type {
   PluginCommand,
   ChannelRef,
   A2AToolResult,
+  A2AToolDefinition,
   A2AServerConfig,
   PluginInjectOptions,
 } from "@wopr-network/plugin-types";
@@ -203,12 +206,9 @@ export interface A2AToolContext {
  * P2P-specific A2A tool definition that extends the shared type
  * with an optional context parameter for session tracking.
  */
-export interface P2PToolDefinition {
-  name: string;
-  description: string;
-  inputSchema: Record<string, unknown>;
+export type P2PToolDefinition = Omit<A2AToolDefinition, "handler"> & {
   handler: (args: Record<string, unknown>, context?: A2AToolContext) => Promise<import("@wopr-network/plugin-types").A2AToolResult>;
-}
+};
 
 // P2P Extension API - exposed to other plugins via ctx.getExtension("p2p")
 export interface P2PExtension {
