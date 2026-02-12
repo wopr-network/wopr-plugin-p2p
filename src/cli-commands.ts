@@ -11,7 +11,7 @@
  *   wopr friend auto-accept [list|add|remove] [pattern]
  */
 
-import type { WOPRPluginContext } from "./types.js";
+import type { WOPRPluginContext } from "@wopr-network/plugin-types";
 import {
   getFriends,
   getFriend,

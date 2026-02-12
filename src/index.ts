@@ -15,11 +15,10 @@ import type Hyperswarm from "hyperswarm";
 import type {
   WOPRPlugin,
   WOPRPluginContext,
-  A2AToolDefinition,
   A2AServerConfig,
   A2AToolResult,
-  A2AToolContext,
-} from "./types.js";
+} from "@wopr-network/plugin-types";
+import type { A2AToolContext, P2PToolDefinition } from "./types.js";
 import { EXIT_OK } from "./types.js";
 import {
   getIdentity,
@@ -138,7 +137,7 @@ function toolResult(text: string, isError = false): A2AToolResult {
 /**
  * A2A Tools for P2P operations
  */
-const p2pTools: A2AToolDefinition[] = [
+const p2pTools: P2PToolDefinition[] = [
   // Identity Tools
   {
     name: "p2p_get_identity",
@@ -760,7 +759,7 @@ const plugin: WOPRPlugin = {
     setP2PLogger((msg) => ctx?.log.info(`[p2p] ${msg}`));
 
     // Configure bootstrap nodes if specified in config
-    const pluginConfig = ctx.getConfig();
+    const pluginConfig = ctx.getConfig<Record<string, unknown>>();
     ctx.log.info(`P2P plugin config received: ${JSON.stringify(pluginConfig)}`);
     if (pluginConfig.bootstrap) {
       const bootstrapNodes = Array.isArray(pluginConfig.bootstrap)
@@ -906,7 +905,7 @@ const plugin: WOPRPlugin = {
     const a2aConfig: A2AServerConfig = {
       name: "p2p",
       version: "1.0.0",
-      tools: p2pTools,
+      tools: p2pTools as A2AServerConfig["tools"],
     };
 
     if (ctx.registerA2AServer) {
@@ -953,7 +952,7 @@ const plugin: WOPRPlugin = {
               throw new Error(`No pending friend request from @${from}`);
             }
             // Complete the accept using the original request
-            const config = ctx?.getConfig() as { botUsername?: string } | undefined;
+            const config = ctx?.getConfig<{ botUsername?: string }>();
             const myUsername = config?.botUsername || "unknown";
             const accept = createFriendAccept(result.request, myUsername);
             return {
@@ -969,7 +968,7 @@ const plugin: WOPRPlugin = {
           }
 
           // Get our bot username for the accept message
-          const config2 = ctx?.getConfig() as { botUsername?: string } | undefined;
+          const config2 = ctx?.getConfig<{ botUsername?: string }>();
           const myUsername = config2?.botUsername || "unknown";
           const accept = createFriendAccept(result.request, myUsername);
 
@@ -998,8 +997,8 @@ const plugin: WOPRPlugin = {
     // Register friend protocol channel hooks
     // This adds /friend, /accept, /friends, /unfriend, /grant commands to all channel providers
     try {
-      registerChannelHooks(ctx as any);
-      registerAutoAcceptCommands(ctx as any);
+      registerChannelHooks(ctx);
+      registerAutoAcceptCommands(ctx);
       ctx.log.info("Registered friend protocol channel hooks");
     } catch (err) {
       ctx.log.warn(`Failed to register channel hooks: ${err}`);
@@ -1009,7 +1008,7 @@ const plugin: WOPRPlugin = {
     // This merges with existing Discord commands so /friend, /accept, etc. show up
     try {
       // Get Discord config from main config or environment
-      const mainDiscordConfig = ctx.getMainConfig?.("discord") as { token?: string; clientId?: string; guildId?: string } | undefined;
+      const mainDiscordConfig = ctx.getMainConfig("discord") as { token?: string; clientId?: string; guildId?: string } | undefined;
       const discordToken = mainDiscordConfig?.token || process.env.DISCORD_TOKEN;
       const discordClientId = mainDiscordConfig?.clientId || process.env.DISCORD_CLIENT_ID;
       const discordGuildId = mainDiscordConfig?.guildId || process.env.DISCORD_GUILD_ID;
@@ -1040,7 +1039,7 @@ const plugin: WOPRPlugin = {
     }
 
     // Start UI server
-    const config = ctx.getConfig();
+    const config = ctx.getConfig<Record<string, unknown>>();
     const uiPort = (config.uiPort as number) || 7334;
 
     try {

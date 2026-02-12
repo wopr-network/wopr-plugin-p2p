@@ -7,7 +7,7 @@
  * This allows the friending protocol to work across any messaging channel.
  */
 
-import type { WOPRPluginContext } from "./types.js";
+import type { WOPRPluginContext } from "@wopr-network/plugin-types";
 import {
 	createFriendRequest,
 	createFriendAccept,
@@ -47,37 +47,7 @@ interface DiscordExtension {
 	getBotUsername: () => string;
 }
 
-// Extended plugin context with channel providers
-interface ExtendedPluginContext extends WOPRPluginContext {
-	getChannelProviders?: () => Array<{
-		id: string;
-		registerCommand: (cmd: {
-			name: string;
-			description: string;
-			handler: (ctx: {
-				channel: string;
-				channelType: string;
-				sender: string;
-				args: string[];
-				reply: (msg: string) => Promise<void>;
-				getBotUsername: () => string;
-			}) => Promise<void>;
-		}) => void;
-		addMessageParser: (parser: {
-			id: string;
-			pattern: RegExp | ((msg: string) => boolean);
-			handler: (ctx: {
-				channel: string;
-				channelType: string;
-				sender: string;
-				content: string;
-				reply: (msg: string) => Promise<void>;
-				getBotUsername: () => string;
-			}) => Promise<void>;
-		}) => void;
-	}>;
-	getExtension?: <T>(name: string) => T | undefined;
-}
+// Use WOPRPluginContext directly — shared type includes getChannelProviders() and getExtension()
 
 /**
  * P2P slash command definitions (plain objects, no discord.js dependency).
@@ -252,7 +222,7 @@ export async function registerP2PSlashCommands(
 /**
  * Register friend protocol commands and parsers with all channel providers
  */
-export function registerChannelHooks(ctx: ExtendedPluginContext): void {
+export function registerChannelHooks(ctx: WOPRPluginContext): void {
 	// Check if channel providers are available
 	if (!ctx.getChannelProviders) {
 		ctx.log.info(
@@ -289,9 +259,9 @@ export function registerChannelHooks(ctx: ExtendedPluginContext): void {
  */
 function registerFriendCommand(
 	channel: ReturnType<
-		NonNullable<ExtendedPluginContext["getChannelProviders"]>
+		NonNullable<WOPRPluginContext["getChannelProviders"]>
 	>[0],
-	ctx: ExtendedPluginContext,
+	ctx: WOPRPluginContext,
 ): void {
 	channel.registerCommand({
 		name: "friend",
@@ -335,9 +305,9 @@ function registerFriendCommand(
  */
 function registerAcceptCommand(
 	channel: ReturnType<
-		NonNullable<ExtendedPluginContext["getChannelProviders"]>
+		NonNullable<WOPRPluginContext["getChannelProviders"]>
 	>[0],
-	ctx: ExtendedPluginContext,
+	ctx: WOPRPluginContext,
 ): void {
 	channel.registerCommand({
 		name: "accept",
@@ -389,9 +359,9 @@ function registerAcceptCommand(
  */
 function registerFriendsCommand(
 	channel: ReturnType<
-		NonNullable<ExtendedPluginContext["getChannelProviders"]>
+		NonNullable<WOPRPluginContext["getChannelProviders"]>
 	>[0],
-	ctx: ExtendedPluginContext,
+	ctx: WOPRPluginContext,
 ): void {
 	channel.registerCommand({
 		name: "friends",
@@ -422,9 +392,9 @@ function registerFriendsCommand(
  */
 function registerUnfriendCommand(
 	channel: ReturnType<
-		NonNullable<ExtendedPluginContext["getChannelProviders"]>
+		NonNullable<WOPRPluginContext["getChannelProviders"]>
 	>[0],
-	ctx: ExtendedPluginContext,
+	ctx: WOPRPluginContext,
 ): void {
 	channel.registerCommand({
 		name: "unfriend",
@@ -453,9 +423,9 @@ function registerUnfriendCommand(
  */
 function registerGrantCommand(
 	channel: ReturnType<
-		NonNullable<ExtendedPluginContext["getChannelProviders"]>
+		NonNullable<WOPRPluginContext["getChannelProviders"]>
 	>[0],
-	ctx: ExtendedPluginContext,
+	ctx: WOPRPluginContext,
 ): void {
 	channel.registerCommand({
 		name: "grant",
@@ -497,9 +467,9 @@ function registerGrantCommand(
  */
 function registerFriendRequestParser(
 	channel: ReturnType<
-		NonNullable<ExtendedPluginContext["getChannelProviders"]>
+		NonNullable<WOPRPluginContext["getChannelProviders"]>
 	>[0],
-	ctx: ExtendedPluginContext,
+	ctx: WOPRPluginContext,
 ): void {
 	channel.addMessageParser({
 		id: "p2p-friend-request",
@@ -584,9 +554,9 @@ function registerFriendRequestParser(
  */
 function registerFriendAcceptParser(
 	channel: ReturnType<
-		NonNullable<ExtendedPluginContext["getChannelProviders"]>
+		NonNullable<WOPRPluginContext["getChannelProviders"]>
 	>[0],
-	ctx: ExtendedPluginContext,
+	ctx: WOPRPluginContext,
 ): void {
 	channel.addMessageParser({
 		id: "p2p-friend-accept",
@@ -642,7 +612,7 @@ function registerFriendAcceptParser(
 /**
  * Setup auto-accept configuration commands
  */
-export function registerAutoAcceptCommands(ctx: ExtendedPluginContext): void {
+export function registerAutoAcceptCommands(ctx: WOPRPluginContext): void {
 	if (!ctx.getChannelProviders) return;
 
 	const channels = ctx.getChannelProviders();
