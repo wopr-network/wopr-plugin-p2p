@@ -26,8 +26,9 @@ import {
   processPeerKeyRotation,
   cleanupExpiredKeyHistory,
   getAllPeerKeys,
+  useInvite,
 } from "../src/trust.js";
-import { initIdentity, shortKey, verifyKeyRotation, rotateIdentity } from "../src/identity.js";
+import { initIdentity, shortKey, verifyKeyRotation, rotateIdentity, createInviteToken } from "../src/identity.js";
 import type { AccessGrant, Peer, KeyRotation } from "../src/types.js";
 
 const TEST_DATA_DIR = join(tmpdir(), "wopr-p2p-test-trust-" + process.pid);
@@ -659,5 +660,66 @@ describe("Key History Cleanup", () => {
       const keys = getAllPeerKeys("dup-key");
       assert.strictEqual(keys.filter(k => k === "shared-old-key").length, 1);
     });
+  });
+});
+
+describe("useInvite", () => {
+  let cleanup: (() => void) | undefined;
+
+  beforeEach(() => {
+    cleanup = useTestDataDir();
+  });
+
+  afterEach(() => {
+    if (cleanup) {
+      cleanup();
+      cleanup = undefined;
+    }
+  });
+
+  it("should add a peer from a valid invite token", () => {
+    const issuer = initIdentity();
+    const token = createInviteToken("target-pubkey", ["session-1"]);
+
+    const peer = useInvite(token);
+
+    assert.ok(peer.id);
+    assert.strictEqual(peer.publicKey, issuer.publicKey);
+    assert.deepStrictEqual(peer.caps, ["inject"]);
+    assert.ok(peer.sessions.includes("session-1"));
+  });
+
+  it("should merge sessions for existing peer", () => {
+    const issuer = initIdentity();
+    const token1 = createInviteToken("target-pubkey", ["session-1"]);
+    const token2 = createInviteToken("target-pubkey", ["session-2"]);
+
+    useInvite(token1);
+    const peer = useInvite(token2);
+
+    assert.ok(peer.sessions.includes("session-1"));
+    assert.ok(peer.sessions.includes("session-2"));
+  });
+
+  it("should create identity if none exists when using invite", () => {
+    // Create a separate identity to sign the token, then wipe it
+    initIdentity();
+    const token = createInviteToken("target-pubkey", ["session-1"]);
+
+    // Force remove identity file to simulate no identity
+    rmSync(join(TEST_DATA_DIR, "identity.json"), { force: true });
+
+    const peer = useInvite(token);
+    assert.ok(peer.publicKey);
+  });
+
+  it("should persist the added peer", () => {
+    initIdentity();
+    const token = createInviteToken("target-pubkey", ["session-1"]);
+
+    useInvite(token);
+
+    const peers = getPeers();
+    assert.strictEqual(peers.length, 1);
   });
 });

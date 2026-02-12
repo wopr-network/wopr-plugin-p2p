@@ -23,6 +23,8 @@ import {
   hasFriendCapability,
   getFriendSecurityContext,
   validateFriendAction,
+  updateFriendSecurityCaps,
+  syncAllFriendsToSecurity,
 } from "../src/security-integration.js";
 import { initIdentity } from "../src/identity.js";
 import type { Friend } from "../src/types.js";
@@ -396,6 +398,44 @@ describe("Friend Capability Checks", () => {
 
       const result = validateFriendAction("ivan-key", "message", friend.sessionName);
       assert.strictEqual(result.allowed, true);
+    });
+  });
+
+  describe("updateFriendSecurityCaps", () => {
+    it("should update security config for existing friend", () => {
+      const friend = createFriendInState("judy", "judy-key", ["message"]);
+      syncFriendToSecurity(friend);
+
+      // Upgrade capabilities
+      updateFriendSecurityCaps("judy", ["message", "inject"]);
+
+      const config = loadSecurityConfig();
+      const source = config.sources[`p2p:judy-key`];
+      assert.ok(source.capabilities.includes("inject"));
+      assert.ok(source.capabilities.includes("inject.tools"));
+    });
+
+    it("should be a no-op for unknown friend", () => {
+      // Should not throw
+      updateFriendSecurityCaps("nonexistent", ["inject"]);
+    });
+  });
+
+  describe("syncAllFriendsToSecurity", () => {
+    it("should sync all friends to security config", () => {
+      createFriendInState("kate", "kate-key", ["message"]);
+      createFriendInState("leo", "leo-key", ["inject"]);
+
+      syncAllFriendsToSecurity();
+
+      const config = loadSecurityConfig();
+      assert.ok(config.sources["p2p:kate-key"]);
+      assert.ok(config.sources["p2p:leo-key"]);
+    });
+
+    it("should work with no friends", () => {
+      // Should not throw when no friends exist
+      syncAllFriendsToSecurity();
     });
   });
 });
