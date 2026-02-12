@@ -25,7 +25,7 @@
   ],
   "license": "MIT",
   "main": "dist/index.js",
-  "name": "wopr-plugin-p2p",
+  "name": "@wopr-network/wopr-plugin-p2p",
   "peerDependencies": {
     "discord.js": "^14.25.1"
   },
@@ -51,5 +51,11 @@
       "description": "P2P networking with Hyperswarm, identity, trust, and A2A tools",
       "name": "p2p"
     }
-  }
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "dist"
+  ]
 }
