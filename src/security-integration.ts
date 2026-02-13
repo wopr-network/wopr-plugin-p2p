@@ -9,7 +9,7 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync } from "fs";
 import { homedir } from "os";
 import { join } from "path";
 import type { Friend } from "./types.js";
-import { getFriends, getFriend } from "./friends.js";
+import { getFriends, getFriend, setFriendCaps } from "./friends.js";
 
 // WOPR home directory — computed lazily so tests can override WOPR_HOME
 function getWoprHome(): string {
@@ -195,7 +195,8 @@ export function updateFriendSecurityCaps(friendName: string, newCaps: string[]):
   const friend = getFriend(friendName);
   if (!friend) return;
 
-  // Update the friend object and sync to security
+  // Persist updated caps to disk, then sync to security
+  setFriendCaps(friendName, newCaps);
   friend.caps = newCaps;
   syncFriendToSecurity(friend);
 }
