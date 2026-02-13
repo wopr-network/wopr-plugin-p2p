@@ -466,6 +466,23 @@ export function removeFriend(nameOrKey: string): boolean {
 }
 
 /**
+ * Replace all capabilities for a friend (persists to disk).
+ */
+export function setFriendCaps(nameOrKey: string, caps: string[]): boolean {
+  const state = loadFriendsState();
+  const friend = state.friends.find(
+    f => f.name.toLowerCase() === nameOrKey.toLowerCase() ||
+         f.publicKey === nameOrKey
+  );
+
+  if (!friend) return false;
+
+  friend.caps = caps;
+  saveFriendsState(state);
+  return true;
+}
+
+/**
  * Grant additional capabilities to a friend
  */
 export function grantFriendCap(nameOrKey: string, cap: string): boolean {

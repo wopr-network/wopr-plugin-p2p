@@ -413,6 +413,13 @@ describe("Friend Capability Checks", () => {
       const source = config.sources[`p2p:judy-key`];
       assert.ok(source.capabilities.includes("inject"));
       assert.ok(source.capabilities.includes("inject.tools"));
+
+      // Verify caps are persisted to disk (not just in-memory)
+      const friendsFile = join(TEST_DATA_DIR, "friends.json");
+      const persisted = JSON.parse(readFileSync(friendsFile, "utf-8"));
+      const judy = persisted.friends.find((f: Friend) => f.name === "judy");
+      assert.ok(judy, "judy should exist in persisted state");
+      assert.ok(judy.caps.includes("inject"), "inject cap should be persisted to disk");
     });
 
     it("should be a no-op for unknown friend", () => {
