@@ -4,7 +4,6 @@
  * Handles Ed25519/X25519 keypairs, signing, encryption, and invite tokens.
  */
 
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from "fs";
 import {
   createHash,
   generateKeyPairSync,
@@ -17,34 +16,78 @@ import {
   createCipheriv,
   createDecipheriv,
 } from "crypto";
-import { homedir } from "os";
-import { join } from "path";
-import type { Identity, InviteToken, EphemeralKeyPair, KeyRotation } from "./types.js";
+import type { Identity, InviteToken, EphemeralKeyPair, KeyRotation, StorageApi } from "./types.js";
+import type { P2PIdentityRow } from "./storage-schema.js";
 
-// Data directory for P2P plugin (overridable via WOPR_P2P_DATA_DIR for testing)
-function getP2PDataDir(): string {
-  return process.env.WOPR_P2P_DATA_DIR ?? join(homedir(), ".wopr", "p2p");
-}
-function getIdentityFile(): string {
-  return join(getP2PDataDir(), "identity.json");
+// Module-level storage reference and cache
+let _storage: StorageApi | null = null;
+let _identityCache: Identity | null = null;
+
+export function setIdentityStorage(storage: StorageApi): void {
+  _storage = storage;
 }
 
-function ensureDataDir(): void {
-  const dir = getP2PDataDir();
-  if (!existsSync(dir)) {
-    mkdirSync(dir, { recursive: true, mode: 0o700 });
+export async function loadIdentity(): Promise<Identity | null> {
+  if (!_storage) {
+    // Fallback: no storage available, return cached value
+    return _identityCache;
   }
+  const repo = _storage.getRepository<P2PIdentityRow>("p2p", "identity");
+  const row = await repo.findById("default");
+  if (!row) return null;
+  const identity: Identity = {
+    publicKey: row.publicKey,
+    privateKey: row.privateKey,
+    encryptPub: row.encryptPub,
+    encryptPriv: row.encryptPriv,
+    created: row.created,
+    rotatedFrom: row.rotatedFrom,
+    rotatedAt: row.rotatedAt,
+  };
+  _identityCache = identity;
+  return identity;
 }
 
 export function getIdentity(): Identity | null {
-  const file = getIdentityFile();
-  if (!existsSync(file)) return null;
-  return JSON.parse(readFileSync(file, "utf-8"));
+  return _identityCache;
 }
 
+export async function saveIdentityAsync(identity: Identity): Promise<void> {
+  _identityCache = identity;
+  if (!_storage) {
+    // Fallback: no storage available, data only in memory cache
+    return;
+  }
+  const repo = _storage.getRepository<P2PIdentityRow>("p2p", "identity");
+  const existing = await repo.findById("default");
+  if (existing) {
+    await repo.update("default", {
+      publicKey: identity.publicKey,
+      privateKey: identity.privateKey,
+      encryptPub: identity.encryptPub,
+      encryptPriv: identity.encryptPriv,
+      created: identity.created,
+      rotatedFrom: identity.rotatedFrom,
+      rotatedAt: identity.rotatedAt,
+    });
+  } else {
+    await repo.insert({
+      id: "default",
+      publicKey: identity.publicKey,
+      privateKey: identity.privateKey,
+      encryptPub: identity.encryptPub,
+      encryptPriv: identity.encryptPriv,
+      created: identity.created,
+      rotatedFrom: identity.rotatedFrom,
+      rotatedAt: identity.rotatedAt,
+    });
+  }
+}
+
+// Keep sync wrapper for backwards compatibility
 export function saveIdentity(identity: Identity): void {
-  ensureDataDir();
-  writeFileSync(getIdentityFile(), JSON.stringify(identity, null, 2), { mode: 0o600 });
+  _identityCache = identity;
+  saveIdentityAsync(identity).catch(() => {});
 }
 
 export function shortKey(publicKey: string): string {

@@ -26,6 +26,8 @@ import {
   shortKey,
   createInviteToken,
   rotateIdentity,
+  setIdentityStorage,
+  loadIdentity,
 } from "./identity.js";
 import {
   getPeers,
@@ -36,6 +38,8 @@ import {
   addPeer,
   grantAccess,
   isAuthorized,
+  setTrustStorage,
+  loadTrustData,
 } from "./trust.js";
 import { sendP2PInject, sendP2PLog, claimToken, createP2PListener, sendKeyRotation, setP2PLogger } from "./p2p.js";
 import {
@@ -60,7 +64,11 @@ import {
   formatFriendAccept,
   getPendingIncomingBySignature,
   denyPendingRequest,
+  setFriendsStorage,
+  loadFriendsData,
 } from "./friends.js";
+import { p2pPluginSchema } from "./storage-schema.js";
+import { migrateJsonToSql } from "./storage-migration.js";
 import { friendCommand } from "./cli-commands.js";
 import { syncAllFriendsToSecurity, getFriendSecurityContext } from "./security-integration.js";
 
@@ -769,6 +777,32 @@ const plugin: WOPRPlugin = {
       ctx.log.info(`P2P bootstrap configured: ${bootstrapNodes.join(", ")}`);
     } else {
       ctx.log.warn("No bootstrap config found in plugin config");
+    }
+
+    // Initialize Storage API if available
+    if (ctx.storage) {
+      ctx.log.info("Registering P2P storage schema...");
+
+      // Register schema (creates tables if needed)
+      await ctx.storage.register(p2pPluginSchema);
+
+      // Set storage references in each module
+      setIdentityStorage(ctx.storage);
+      setTrustStorage(ctx.storage);
+      setFriendsStorage(ctx.storage);
+
+      // Run one-time migration from JSON files to SQL
+      // Only migrates files that still exist (idempotent)
+      await migrateJsonToSql(ctx.storage, (msg) => ctx?.log.info(`[p2p:migration] ${msg}`));
+
+      // Load all data into memory caches
+      await loadIdentity();
+      await loadTrustData();
+      await loadFriendsData();
+
+      ctx.log.info("P2P storage initialized");
+    } else {
+      ctx.log.warn("Storage API not available - using JSON file persistence (legacy mode)");
     }
 
     // Ensure identity exists

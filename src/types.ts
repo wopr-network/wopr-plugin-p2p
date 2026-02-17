@@ -17,6 +17,9 @@ export type {
   A2AToolDefinition,
   A2AServerConfig,
   PluginInjectOptions,
+  StorageApi,
+  PluginSchema,
+  Repository,
 } from "@wopr-network/plugin-types";
 
 // Exit codes
