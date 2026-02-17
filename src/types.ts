@@ -19,6 +19,48 @@ export type {
   PluginInjectOptions,
 } from "@wopr-network/plugin-types";
 
+// ============================================
+// Minimal Storage API types (from wopr core)
+// ============================================
+
+export interface Repository<T extends Record<string, unknown>> {
+  insert(data: Partial<T>): Promise<T>;
+  insertMany(data: Partial<T>[]): Promise<T[]>;
+  findById(id: unknown): Promise<T | null>;
+  findFirst(filter: Record<string, unknown>): Promise<T | null>;
+  findMany(filter?: Record<string, unknown>): Promise<T[]>;
+  update(id: unknown, data: Partial<T>): Promise<T>;
+  updateMany(filter: Record<string, unknown>, data: Partial<T>): Promise<number>;
+  delete(id: unknown): Promise<boolean>;
+  deleteMany(filter: Record<string, unknown>): Promise<number>;
+  count(filter?: Record<string, unknown>): Promise<number>;
+  exists(id: unknown): Promise<boolean>;
+}
+
+export interface StorageApi {
+  readonly driver: "sqlite" | "postgres";
+  register(schema: PluginSchemaDefinition): Promise<void>;
+  getRepository<T extends Record<string, unknown>>(namespace: string, tableName: string): Repository<T>;
+  isRegistered(namespace: string): boolean;
+  getVersion(namespace: string): Promise<number>;
+  raw(sql: string, params?: unknown[]): Promise<unknown[]>;
+  transaction<R>(fn: (storage: StorageApi) => Promise<R>): Promise<R>;
+}
+
+export interface PluginSchemaDefinition {
+  namespace: string;
+  version: number;
+  tables: Record<string, { schema: any; primaryKey: string; indexes?: Array<{ fields: string[]; unique?: boolean }> }>;
+  migrate?: (fromVersion: number, toVersion: number, storage: StorageApi) => Promise<void>;
+}
+
+// Extend WOPRPluginContext with storage property
+declare module "@wopr-network/plugin-types" {
+  interface WOPRPluginContext {
+    storage?: StorageApi;
+  }
+}
+
 // Exit codes
 export const EXIT_OK = 0;
 export const EXIT_OFFLINE = 1;

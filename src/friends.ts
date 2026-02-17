@@ -5,9 +5,6 @@
  * managing friendships, and session creation for friends.
  */
 
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from "fs";
-import { homedir } from "os";
-import { join } from "path";
 import {
   createPrivateKey,
   createPublicKey,
@@ -22,42 +19,136 @@ import type {
   Friend,
   FriendsState,
   AutoAcceptRule,
+  StorageApi,
 } from "./types.js";
 import { getIdentity, shortKey } from "./identity.js";
 import { grantAccess, addPeer } from "./trust.js";
 import { syncFriendToSecurity, removeFriendFromSecurity } from "./security-integration.js";
-
-// Data directory for P2P plugin (overridable via WOPR_P2P_DATA_DIR for testing)
-function getP2PDataDir(): string {
-  return process.env.WOPR_P2P_DATA_DIR
-    ?? (existsSync("/data") ? "/data/p2p" : join(homedir(), ".wopr", "p2p"));
-}
-
-function getFriendsFile(): string {
-  return join(getP2PDataDir(), "friends.json");
-}
+import type { P2PFriendRow, P2PPendingRequestRow, P2PAutoAcceptRow } from "./storage-schema.js";
 
 // Request expiry time (5 minutes)
 const REQUEST_EXPIRY_MS = 5 * 60 * 1000;
 
-function ensureDataDir(): void {
-  const dir = getP2PDataDir();
-  if (!existsSync(dir)) {
-    mkdirSync(dir, { recursive: true, mode: 0o700 });
-  }
+// Module-level storage reference and cache
+let _storage: StorageApi | null = null;
+let _stateCache: FriendsState | null = null;
+
+export function setFriendsStorage(storage: StorageApi): void {
+  _storage = storage;
+}
+
+export async function loadFriendsData(): Promise<void> {
+  if (!_storage) return;
+  const friendsRepo = _storage.getRepository<P2PFriendRow>("p2p", "friends");
+  const pendingRepo = _storage.getRepository<P2PPendingRequestRow>("p2p", "pending_requests");
+  const autoAcceptRepo = _storage.getRepository<P2PAutoAcceptRow>("p2p", "auto_accept");
+
+  const friendRows = await friendsRepo.findMany();
+  const pendingRows = await pendingRepo.findMany();
+  const autoAcceptRows = await autoAcceptRepo.findMany();
+
+  _stateCache = {
+    friends: friendRows.map(row => ({
+      name: row.name,
+      publicKey: row.publicKey,
+      encryptPub: row.encryptPub,
+      sessionName: row.sessionName,
+      addedAt: row.addedAt,
+      caps: row.caps,
+      channel: row.channel,
+    })),
+    pendingIn: pendingRows
+      .filter(r => r.direction === "in")
+      .map(r => ({
+        request: JSON.parse(r.requestJson),
+        receivedAt: r.timestamp,
+        channel: r.channel,
+        channelId: r.channelId,
+      })),
+    pendingOut: pendingRows
+      .filter(r => r.direction === "out")
+      .map(r => ({
+        request: JSON.parse(r.requestJson),
+        sentAt: r.timestamp,
+        channel: r.channel,
+        channelId: r.channelId,
+      })),
+    autoAccept: autoAcceptRows.map(r => ({
+      pattern: r.pattern,
+      addedAt: r.addedAt,
+    })),
+  };
 }
 
 function loadFriendsState(): FriendsState {
-  const file = getFriendsFile();
-  if (!existsSync(file)) {
-    return { friends: [], pendingIn: [], pendingOut: [], autoAccept: [] };
-  }
-  return JSON.parse(readFileSync(file, "utf-8"));
+  if (_stateCache !== null) return _stateCache;
+  // Fallback: no storage available, return empty state (data only in memory cache)
+  return { friends: [], pendingIn: [], pendingOut: [], autoAccept: [] };
 }
 
 function saveFriendsState(state: FriendsState): void {
-  ensureDataDir();
-  writeFileSync(getFriendsFile(), JSON.stringify(state, null, 2), { mode: 0o600 });
+  _stateCache = state;
+  if (!_storage) {
+    // Fallback: no storage available, data only in memory cache
+    return;
+  }
+  syncFriendsToStorage(state).catch(() => {});
+}
+
+async function syncFriendsToStorage(state: FriendsState): Promise<void> {
+  if (!_storage) return;
+
+  const friendsRepo = _storage.getRepository<P2PFriendRow>("p2p", "friends");
+  const pendingRepo = _storage.getRepository<P2PPendingRequestRow>("p2p", "pending_requests");
+  const autoAcceptRepo = _storage.getRepository<P2PAutoAcceptRow>("p2p", "auto_accept");
+
+  // Friends: delete all + re-insert
+  await _storage.raw(`DELETE FROM p2p_friends`);
+  for (const f of state.friends) {
+    await friendsRepo.insert({
+      id: shortKey(f.publicKey),
+      name: f.name,
+      publicKey: f.publicKey,
+      encryptPub: f.encryptPub,
+      sessionName: f.sessionName,
+      addedAt: f.addedAt,
+      caps: f.caps,
+      channel: f.channel,
+    });
+  }
+
+  // Pending requests: delete all + re-insert
+  await _storage.raw(`DELETE FROM p2p_pending_requests`);
+  for (const p of state.pendingIn) {
+    await pendingRepo.insert({
+      id: `in-${p.request.sig.slice(0, 16)}`,
+      direction: "in",
+      requestJson: JSON.stringify(p.request),
+      timestamp: p.receivedAt,
+      channel: p.channel,
+      channelId: p.channelId,
+    });
+  }
+  for (const p of state.pendingOut) {
+    await pendingRepo.insert({
+      id: `out-${p.request.sig.slice(0, 16)}`,
+      direction: "out",
+      requestJson: JSON.stringify(p.request),
+      timestamp: p.sentAt,
+      channel: p.channel,
+      channelId: p.channelId,
+    });
+  }
+
+  // Auto-accept: delete all + re-insert
+  await _storage.raw(`DELETE FROM p2p_auto_accept`);
+  for (const r of state.autoAccept) {
+    await autoAcceptRepo.insert({
+      id: r.pattern,
+      pattern: r.pattern,
+      addedAt: r.addedAt,
+    });
+  }
 }
 
 /**

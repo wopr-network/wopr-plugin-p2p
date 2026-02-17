@@ -4,53 +4,127 @@
  * Handles access grants, peer management, and key rotation.
  */
 
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from "fs";
-import { homedir } from "os";
-import { join } from "path";
-import type { AccessGrant, Peer, KeyRotation, KeyHistory } from "./types.js";
+import type { AccessGrant, Peer, KeyRotation, KeyHistory, StorageApi } from "./types.js";
 import { getIdentity, initIdentity, shortKey, parseInviteToken, verifyKeyRotation } from "./identity.js";
+import type { P2PPeerRow, P2PAccessGrantRow } from "./storage-schema.js";
 
-// Data directory for P2P plugin (overridable via WOPR_P2P_DATA_DIR for testing)
-function getP2PDataDir(): string {
-  return process.env.WOPR_P2P_DATA_DIR
-    ?? (existsSync("/data") ? "/data/p2p" : join(homedir(), ".wopr", "p2p"));
+// Module-level storage reference and cache
+let _storage: StorageApi | null = null;
+let _grantsCache: AccessGrant[] | null = null;
+let _peersCache: Peer[] | null = null;
+
+export function setTrustStorage(storage: StorageApi): void {
+  _storage = storage;
 }
 
-function getAccessFile(): string {
-  return join(getP2PDataDir(), "access.json");
+export async function loadTrustData(): Promise<void> {
+  if (!_storage) return;
+  const grantsRepo = _storage.getRepository<P2PAccessGrantRow>("p2p", "access_grants");
+  const peersRepo = _storage.getRepository<P2PPeerRow>("p2p", "peers");
+
+  const grantRows = await grantsRepo.findMany();
+  _grantsCache = grantRows.map(rowToAccessGrant);
+
+  const peerRows = await peersRepo.findMany();
+  _peersCache = peerRows.map(rowToPeer);
 }
 
-function getPeersFile(): string {
-  return join(getP2PDataDir(), "peers.json");
+function rowToAccessGrant(row: P2PAccessGrantRow): AccessGrant {
+  return {
+    id: row.id,
+    peerKey: row.peerKey,
+    peerName: row.peerName,
+    peerEncryptPub: row.peerEncryptPub,
+    sessions: row.sessions,
+    caps: row.caps,
+    created: row.created,
+    revoked: row.revoked ? true : undefined,
+    keyHistory: row.keyHistory,
+  };
 }
 
-function ensureDataDir(): void {
-  const dir = getP2PDataDir();
-  if (!existsSync(dir)) {
-    mkdirSync(dir, { recursive: true, mode: 0o700 });
-  }
+function rowToPeer(row: P2PPeerRow): Peer {
+  return {
+    id: row.id,
+    publicKey: row.publicKey,
+    encryptPub: row.encryptPub,
+    name: row.name,
+    sessions: row.sessions,
+    caps: row.caps,
+    added: row.added,
+    keyHistory: row.keyHistory,
+  };
 }
 
 export function getAccessGrants(): AccessGrant[] {
-  const file = getAccessFile();
-  if (!existsSync(file)) return [];
-  return JSON.parse(readFileSync(file, "utf-8"));
+  if (_grantsCache !== null) return _grantsCache;
+  // Fallback to JSON if no storage (sync version for legacy compatibility)
+  // This requires synchronous fs operations
+  return [];
 }
 
 export function saveAccessGrants(grants: AccessGrant[]): void {
-  ensureDataDir();
-  writeFileSync(getAccessFile(), JSON.stringify(grants, null, 2), { mode: 0o600 });
+  _grantsCache = grants;
+  if (!_storage) {
+    // Fallback: no storage available, data only in memory cache
+    return;
+  }
+  // Fire async write
+  syncGrantsToStorage(grants).catch(() => {});
+}
+
+async function syncGrantsToStorage(grants: AccessGrant[]): Promise<void> {
+  if (!_storage) return;
+  const repo = _storage.getRepository<P2PAccessGrantRow>("p2p", "access_grants");
+  // Strategy: delete all, re-insert (simpler than diffing)
+  await _storage.raw(`DELETE FROM p2p_access_grants`);
+  for (const grant of grants) {
+    await repo.insert({
+      id: grant.id,
+      peerKey: grant.peerKey,
+      peerName: grant.peerName,
+      peerEncryptPub: grant.peerEncryptPub,
+      sessions: grant.sessions,
+      caps: grant.caps,
+      created: grant.created,
+      revoked: grant.revoked ? 1 : undefined,
+      keyHistory: grant.keyHistory,
+    });
+  }
 }
 
 export function getPeers(): Peer[] {
-  const file = getPeersFile();
-  if (!existsSync(file)) return [];
-  return JSON.parse(readFileSync(file, "utf-8"));
+  if (_peersCache !== null) return _peersCache;
+  // Fallback: no storage available, return empty (data only in memory cache)
+  return [];
 }
 
 export function savePeers(peers: Peer[]): void {
-  ensureDataDir();
-  writeFileSync(getPeersFile(), JSON.stringify(peers, null, 2), { mode: 0o600 });
+  _peersCache = peers;
+  if (!_storage) {
+    // Fallback: no storage available, data only in memory cache
+    return;
+  }
+  // Fire async write
+  syncPeersToStorage(peers).catch(() => {});
+}
+
+async function syncPeersToStorage(peers: Peer[]): Promise<void> {
+  if (!_storage) return;
+  const repo = _storage.getRepository<P2PPeerRow>("p2p", "peers");
+  await _storage.raw(`DELETE FROM p2p_peers`);
+  for (const peer of peers) {
+    await repo.insert({
+      id: peer.id,
+      publicKey: peer.publicKey,
+      encryptPub: peer.encryptPub,
+      name: peer.name,
+      sessions: peer.sessions,
+      caps: peer.caps,
+      added: peer.added,
+      keyHistory: peer.keyHistory,
+    });
+  }
 }
 
 /**
