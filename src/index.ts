@@ -19,7 +19,16 @@ import type {
   A2AToolResult,
 } from "@wopr-network/plugin-types";
 import type { A2AToolContext, P2PToolDefinition } from "./types.js";
-import { EXIT_OK } from "./types.js";
+import {
+  EXIT_OK,
+  EXIT_OFFLINE,
+  EXIT_REJECTED,
+  EXIT_INVALID,
+  EXIT_RATE_LIMITED,
+  EXIT_VERSION_MISMATCH,
+  PROTOCOL_VERSION,
+  MIN_PROTOCOL_VERSION,
+} from "./types.js";
 import {
   getIdentity,
   initIdentity,
@@ -37,7 +46,6 @@ import {
   grantAccess,
   isAuthorized,
 } from "./trust.js";
-import { sendP2PInject, sendP2PLog, claimToken, createP2PListener, sendKeyRotation, setP2PLogger } from "./p2p.js";
 import {
   initDiscovery,
   joinTopic,
@@ -50,8 +58,19 @@ import {
   shutdownDiscovery,
   notifyGrantUpdate,
 } from "./discovery.js";
-import { setP2PConfig } from "./config.js";
-import { registerChannelHooks, registerAutoAcceptCommands, registerP2PSlashCommands } from "./channel-hooks.js";
+import {
+  sendP2PInject,
+  sendP2PLog,
+  claimToken,
+  createP2PListener,
+  sendKeyRotation,
+  setP2PLogger,
+} from "./p2p.js";
+import {
+  registerChannelHooks,
+  registerAutoAcceptCommands,
+  registerP2PSlashCommands,
+} from "./channel-hooks.js";
 import {
   cleanupExpiredRequests,
   acceptPendingRequest,
@@ -63,6 +82,8 @@ import {
 } from "./friends.js";
 import { friendCommand } from "./cli-commands.js";
 import { syncAllFriendsToSecurity, getFriendSecurityContext } from "./security-integration.js";
+import { p2pTableSchemas } from "./schema.js";
+import { P2PStorage } from "./storage-wrapper.js";
 
 // Setup winston logger
 const logger = winston.createLogger({
@@ -80,6 +101,14 @@ const logger = winston.createLogger({
 let ctx: WOPRPluginContext | null = null;
 let p2pListener: Hyperswarm | null = null;
 let uiServer: http.Server | null = null;
+// Storage
+let p2pStorage: P2PStorage | null = null;
+// Storage repositories
+let friendsRepo: any = null;
+let pendingRepo: any = null;
+let autoAcceptRepo: any = null;
+let grantsRepo: any = null;
+let peersRepo: any = null;
 
 // Track sessions currently being P2P injected into
 // This prevents recursive inject loops (A injects to B, B tries to inject back to A)
@@ -179,7 +208,7 @@ const p2pTools: P2PToolDefinition[] = [
         },
       },
     },
-    handler: async (args) => {
+    handler: async (args: Record<string, unknown>) => {
       const reason = (args.reason as "scheduled" | "compromise" | "upgrade") || "scheduled";
       const notifyPeers = args.notifyPeers !== false;
 
@@ -248,7 +277,7 @@ const p2pTools: P2PToolDefinition[] = [
       },
       required: ["peerId", "name"],
     },
-    handler: async (args) => {
+    handler: async (args: Record<string, unknown>) => {
       try {
         namePeer(args.peerId as string, args.name as string);
         return toolResult(`Peer ${args.peerId} named "${args.name}"`);
@@ -267,7 +296,7 @@ const p2pTools: P2PToolDefinition[] = [
       },
       required: ["peerId"],
     },
-    handler: async (args) => {
+    handler: async (args: Record<string, unknown>) => {
       try {
         revokePeer(args.peerId as string);
         return toolResult(`Access revoked for peer ${args.peerId}`);
@@ -297,7 +326,7 @@ const p2pTools: P2PToolDefinition[] = [
       },
       required: ["forPubkey", "sessions"],
     },
-    handler: async (args) => {
+    handler: async (args: Record<string, unknown>) => {
       try {
         const token = createInviteToken(
           args.forPubkey as string,
@@ -328,7 +357,7 @@ const p2pTools: P2PToolDefinition[] = [
       },
       required: ["token"],
     },
-    handler: async (args) => {
+    handler: async (args: Record<string, unknown>) => {
       const result = await claimToken(args.token as string, (args.timeoutMs as number) || 10000);
 
       if (result.code === EXIT_OK) {
@@ -360,7 +389,7 @@ const p2pTools: P2PToolDefinition[] = [
       },
       required: ["peer", "session", "message"],
     },
-    handler: async (args) => {
+    handler: async (args: Record<string, unknown>) => {
       const result = await sendP2PLog(
         args.peer as string,
         args.session as string,
@@ -441,9 +470,10 @@ const p2pTools: P2PToolDefinition[] = [
       properties: {},
     },
     handler: async () => {
+      if (!p2pStorage) throw new Error("Storage not initialized");
       const identity = getIdentity();
-      const peers = getPeers();
-      const grants = getAccessGrants();
+      const peers = await p2pStorage.getPeers();
+      const grants = await p2pStorage.getAccessGrants();
 
       return toolResult(
         JSON.stringify({
@@ -488,15 +518,16 @@ const p2pTools: P2PToolDefinition[] = [
           description: "Capabilities to grant (default: ['inject'])",
         },
       },
-      required: ["peerKey", "sessions"],
-    },
-    handler: async (args) => {
+       required: ["peerKey", "sessions"],
+     },
+     handler: async (args: Record<string, unknown>) => {
       try {
+        if (!p2pStorage) throw new Error("Storage not initialized");
         let peerKey = args.peerKey as string;
         const sessions = args.sessions as string[];
 
         // Resolve short ID or name to full public key
-        const existingPeer = findPeer(peerKey);
+        const existingPeer = await p2pStorage.findPeer(peerKey);
         if (existingPeer) {
           peerKey = existingPeer.publicKey;
           logger.info(`[p2p] Resolved peer ${args.peerKey} to ${shortKey(peerKey)}`);
@@ -534,12 +565,13 @@ const p2pTools: P2PToolDefinition[] = [
     description: "List all access grants (who can send to which sessions).",
     inputSchema: {
       type: "object",
-      properties: {
-        includeRevoked: { type: "boolean", description: "Include revoked grants" },
-      },
-    },
-    handler: async (args) => {
-      const grants = getAccessGrants();
+       properties: {
+         includeRevoked: { type: "boolean", description: "Include revoked grants" },
+       },
+     },
+     handler: async (args: Record<string, unknown>) => {
+      if (!p2pStorage) throw new Error("Storage not initialized");
+      const grants = await p2pStorage.getAccessGrants();
       const filtered = args.includeRevoked
         ? grants
         : grants.filter((g) => !g.revoked);
@@ -572,7 +604,7 @@ const p2pTools: P2PToolDefinition[] = [
       },
       required: ["topic"],
     },
-    handler: async (args) => {
+    handler: async (args: Record<string, unknown>) => {
       try {
         await joinTopic(args.topic as string);
         return toolResult(
@@ -597,7 +629,7 @@ const p2pTools: P2PToolDefinition[] = [
       },
       required: ["topic"],
     },
-    handler: async (args) => {
+    handler: async (args: Record<string, unknown>) => {
       try {
         await leaveTopic(args.topic as string);
         return toolResult(
@@ -638,7 +670,7 @@ const p2pTools: P2PToolDefinition[] = [
         topic: { type: "string", description: "Filter by topic (optional)" },
       },
     },
-    handler: async (args) => {
+    handler: async (args: Record<string, unknown>) => {
       const peers = getDiscoveredPeers(args.topic as string | undefined);
       return toolResult(
         JSON.stringify({
@@ -664,7 +696,7 @@ const p2pTools: P2PToolDefinition[] = [
       },
       required: ["peerId"],
     },
-    handler: async (args) => {
+    handler: async (args: Record<string, unknown>) => {
       try {
         const result = await requestConnection(args.peerId as string);
         if (result.accept) {
@@ -719,7 +751,7 @@ const p2pTools: P2PToolDefinition[] = [
       },
       required: ["content"],
     },
-    handler: async (args) => {
+    handler: async (args: Record<string, unknown>) => {
       try {
         const profile = updateProfile(args.content as Record<string, unknown>);
         if (!profile) {
@@ -759,16 +791,49 @@ const plugin: WOPRPlugin = {
     setP2PLogger((msg) => ctx?.log.info(`[p2p] ${msg}`));
 
     // Configure bootstrap nodes if specified in config
+    // TODO: Implement setP2PConfig in p2p.ts
     const pluginConfig = ctx.getConfig<Record<string, unknown>>();
     ctx.log.info(`P2P plugin config received: ${JSON.stringify(pluginConfig)}`);
-    if (pluginConfig.bootstrap) {
-      const bootstrapNodes = Array.isArray(pluginConfig.bootstrap)
-        ? pluginConfig.bootstrap
-        : [pluginConfig.bootstrap];
-      setP2PConfig({ bootstrap: bootstrapNodes as string[] });
-      ctx.log.info(`P2P bootstrap configured: ${bootstrapNodes.join(", ")}`);
-    } else {
-      ctx.log.warn("No bootstrap config found in plugin config");
+    // if (pluginConfig.bootstrap) {
+    //   const bootstrapNodes = Array.isArray(pluginConfig.bootstrap)
+    //     ? pluginConfig.bootstrap
+    //     : [pluginConfig.bootstrap];
+    //   setP2PConfig({ bootstrap: bootstrapNodes as string[] });
+    //   ctx.log.info(`P2P bootstrap configured: ${bootstrapNodes.join(", ")}`);
+    // } else {
+    //   ctx.log.warn("No bootstrap config found in plugin config");
+    // }
+
+    // Register storage schema
+    try {
+      // const p2pSchema: PluginSchema = {
+      //   namespace: "p2p",
+      //   version: 1,
+      //   tables: {
+      //     friends: p2pTableSchemas.friends,
+      //     pendingRequests: p2pTableSchemas.pendingRequests,
+      //     autoAcceptRules: p2pTableSchemas.autoAcceptRules,
+      //     accessGrants: p2pTableSchemas.accessGrants,
+      //     peers: p2pTableSchemas.peers,
+      //   },
+      // };
+      // await (ctx as unknown as { storage: any }).storage.register(p2pSchema);
+      ctx.log.info("P2P storage: Register schema TODO - waiting for plugin-types update");
+
+       // TODO: Get repositories when plugin-types is updated
+       // friendsRepo = (ctx as unknown as { storage: any }).storage.getRepository(p2pSchema.namespace, "friends");
+       // pendingRepo = (ctx as unknown as { storage: any }).storage.getRepository(p2pSchema.namespace, "pendingRequests");
+       // autoAcceptRepo = (ctx as unknown as { storage: any }).storage.getRepository(p2pSchema.namespace, "autoAcceptRules");
+       // grantsRepo = (ctx as unknown as { storage: any }).storage.getRepository(p2pSchema.namespace, "accessGrants");
+       // peersRepo = (ctx as unknown as { storage: any }).storage.getRepository(p2pSchema.namespace, "peers");
+       ctx.log.info("P2P storage: Get repositories TODO - waiting for plugin-types update");
+
+      // Initialize storage wrapper
+      p2pStorage = new P2PStorage(friendsRepo, pendingRepo, autoAcceptRepo, grantsRepo, peersRepo);
+      ctx.log.info("P2P storage wrapper initialized");
+    } catch (err) {
+      ctx.log.error(`Failed to register storage schema: ${err}`);
+      throw err;
     }
 
     // Ensure identity exists
@@ -783,7 +848,7 @@ const plugin: WOPRPlugin = {
     // Start P2P listener with log and inject handlers
     p2pListener = createP2PListener({
       // Log handler - mailbox style, just stores message in session history
-      onLogMessage: (session, message, peerKey) => {
+      onLogMessage: (session: string, message: string, peerKey?: string) => {
         const peerId = peerKey ? shortKey(peerKey) : "unknown";
         ctx?.log.info(`P2P log message: ${peerId} -> ${session}`);
         ctx?.log.info(`P2P message content: ${message.slice(0, 200)}...`);
@@ -801,7 +866,7 @@ const plugin: WOPRPlugin = {
       },
 
       // Inject handler - invokes AI and returns response
-      onInjectMessage: async (session, message, peerKey) => {
+      onInjectMessage: async (session: string, message: string, peerKey?: string) => {
         const peerId = peerKey ? shortKey(peerKey) : "unknown";
         ctx?.log.info(`P2P inject message: ${peerId} -> ${session}`);
         ctx?.log.info(`P2P message content: ${message.slice(0, 200)}...`);
@@ -857,7 +922,7 @@ const plugin: WOPRPlugin = {
       },
 
       // Logging output
-      onLog: (msg) => ctx?.log.info(`[p2p] ${msg}`),
+      onLog: (msg: string) => ctx?.log.info(`[p2p] ${msg}`),
     });
 
     if (p2pListener) {
@@ -871,7 +936,7 @@ const plugin: WOPRPlugin = {
           ctx?.log.info(`Discovery connection request from ${peerProfile.id} in ${topic}`);
 
           // Check if this peer has ANY valid grant (session filtering happens when messaging)
-          const grants = getAccessGrants();
+          const grants = await p2pStorage?.getAccessGrants() ?? [];
           const grant = grants.find(g => g.peerKey === peerProfile.publicKey && !g.revoked);
 
           if (grant) {
@@ -924,8 +989,8 @@ const plugin: WOPRPlugin = {
         shortKey,
 
         // Peers
-        getPeers,
-        findPeer,
+        getPeers: async () => p2pStorage?.getPeers() ?? [],
+        findPeer: async (name: string) => p2pStorage?.findPeer(name) ?? null,
         namePeer,
         revokePeer,
 
@@ -943,8 +1008,9 @@ const plugin: WOPRPlugin = {
 
         // Friend request handling (for Discord button integration)
         acceptFriendRequest: async (from: string, pubkey: string, encryptPub: string, signature: string, channelId: string) => {
+          if (!p2pStorage) throw new Error("Storage not initialized");
           // Find the pending request by signature
-          const pending = getPendingIncomingBySignature(signature);
+          const pending = await p2pStorage.getPendingRequestBySignature(signature);
           if (!pending) {
             // Check if we can find it by username
             const result = acceptPendingRequest(from);
