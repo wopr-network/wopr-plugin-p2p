@@ -16,7 +16,7 @@ import type {
 import { createReadStream, existsSync } from "fs";
 import http from "http";
 import type Hyperswarm from "hyperswarm";
-import { extname, join } from "path";
+import { extname, join, resolve, sep } from "path";
 import winston from "winston";
 import {
 	registerAutoAcceptCommands,
@@ -134,17 +134,59 @@ const CONTENT_TYPES: Record<string, string> = {
 
 /**
  * Start HTTP server to serve UI component
+ *
+ * Security: Protected against path traversal (WOP-619).
+ * - Uses path.resolve() + startsWith() guard instead of path.join()
+ * - Decodes percent-encoded characters to catch %2e%2e%2f traversals
+ * - Strips query strings and fragments before path resolution
+ * - Enforces an extension allowlist (only web asset types served)
+ * - Logs and returns 403 on traversal attempts
  */
 function startUIServer(port: number, pluginDir: string): http.Server {
+	// Pre-compute the canonical root with trailing separator to prevent
+	// sibling-directory prefix match (e.g. /plugin/dir-evil vs /plugin/dir)
+	const root = resolve(pluginDir) + sep;
+
 	const server = http.createServer((req, res) => {
-		const url = req.url === "/" ? "/ui.js" : req.url || "/ui.js";
-		const filePath = join(pluginDir, url);
+		const rawUrl = req.url === "/" ? "/ui.js" : req.url || "/ui.js";
+
+		// Decode percent-encoded characters to catch %2e%2e%2f and similar
+		let decoded: string;
+		try {
+			decoded = decodeURIComponent(rawUrl);
+		} catch {
+			res.writeHead(400);
+			res.end("Bad Request");
+			return;
+		}
+
+		// Strip query strings and fragments to prevent ?/../ or #/../ bypasses
+		const cleanUrl = decoded.split("?")[0].split("#")[0];
+
+		// Resolve to absolute path — prepend "." to prevent absolute path injection
+		// (e.g. GET //etc/passwd would resolve to /etc/passwd without this guard)
+		const filePath = resolve(pluginDir, "." + cleanUrl);
+
+		// Enforce that the resolved path is strictly within pluginDir
+		if (!filePath.startsWith(root) && filePath !== resolve(pluginDir)) {
+			logger.warn(
+				`[p2p:ui] Path traversal blocked: ${req.url} resolved to ${filePath}`,
+			);
+			res.writeHead(403);
+			res.end("Forbidden");
+			return;
+		}
+
 		const ext = extname(filePath).toLowerCase();
 
-		res.setHeader(
-			"Content-Type",
-			CONTENT_TYPES[ext] || "application/octet-stream",
-		);
+		// Enforce extension allowlist — only serve known web asset types
+		if (!CONTENT_TYPES[ext]) {
+			res.writeHead(403);
+			res.end("Forbidden");
+			return;
+		}
+
+		res.setHeader("Content-Type", CONTENT_TYPES[ext]);
 		res.setHeader("Access-Control-Allow-Origin", "*");
 
 		if (existsSync(filePath)) {
@@ -1369,3 +1411,6 @@ export type {
 export * from "./security-integration.js";
 export * from "./trust.js";
 export * from "./types.js";
+
+// Exported for testing only (WOP-619)
+export { startUIServer as _startUIServer };
