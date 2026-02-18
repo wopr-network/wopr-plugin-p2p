@@ -1,7 +1,7 @@
 {
   "author": "",
   "dependencies": {
-    "@wopr-network/plugin-types": "^0.2.0",
+    "@wopr-network/plugin-types": "^0.2.1",
     "hyperswarm": "^4.7.15",
     "winston": "^3.11.0",
     "zod": "^3.23.0"
@@ -26,6 +26,7 @@
   ],
   "license": "MIT",
   "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "name": "@wopr-network/wopr-plugin-p2p",
   "peerDependencies": {
     "discord.js": "^14.25.1"
