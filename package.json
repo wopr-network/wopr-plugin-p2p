@@ -25,6 +25,7 @@
   ],
   "license": "MIT",
   "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "name": "@wopr-network/wopr-plugin-p2p",
   "peerDependencies": {
     "discord.js": "^14.25.1"
