@@ -9,28 +9,28 @@
 
 import type { WOPRPluginContext } from "@wopr-network/plugin-types";
 import {
-	createFriendRequest,
-	createFriendAccept,
-	formatFriendRequest,
-	formatFriendAccept,
-	parseFriendRequest,
-	parseFriendAccept,
-	verifyFriendRequest,
-	verifyFriendAccept,
-	storePendingRequest,
-	queueForApproval,
-	shouldAutoAccept,
-	getPendingOutgoing,
-	completeFriendship,
 	acceptPendingRequest,
-	getFriends,
-	getFriend,
-	removeFriend,
-	grantFriendCap,
-	getPendingIncomingRequests,
-	getAutoAcceptRules,
 	addAutoAcceptRule,
+	completeFriendship,
+	createFriendAccept,
+	createFriendRequest,
+	formatFriendAccept,
+	formatFriendRequest,
+	getAutoAcceptRules,
+	getFriend,
+	getFriends,
+	getPendingIncomingRequests,
+	getPendingOutgoing,
+	grantFriendCap,
+	parseFriendAccept,
+	parseFriendRequest,
+	queueForApproval,
 	removeAutoAcceptRule,
+	removeFriend,
+	shouldAutoAccept,
+	storePendingRequest,
+	verifyFriendAccept,
+	verifyFriendRequest,
 } from "./friends.js";
 import { getIdentity, shortKey } from "./identity.js";
 
@@ -133,7 +133,10 @@ export async function registerP2PSlashCommands(
 		REST = discordjs.REST;
 		Routes = discordjs.Routes;
 	} catch (err: any) {
-		console.warn("discord.js not available (optional peer dependency):", err.message);
+		console.warn(
+			"discord.js not available (optional peer dependency):",
+			err.message,
+		);
 		return;
 	}
 
@@ -258,9 +261,7 @@ export function registerChannelHooks(ctx: WOPRPluginContext): void {
  * Register /friend command
  */
 function registerFriendCommand(
-	channel: ReturnType<
-		NonNullable<WOPRPluginContext["getChannelProviders"]>
-	>[0],
+	channel: ReturnType<NonNullable<WOPRPluginContext["getChannelProviders"]>>[0],
 	ctx: WOPRPluginContext,
 ): void {
 	channel.registerCommand({
@@ -304,9 +305,7 @@ function registerFriendCommand(
  * Register /accept command
  */
 function registerAcceptCommand(
-	channel: ReturnType<
-		NonNullable<WOPRPluginContext["getChannelProviders"]>
-	>[0],
+	channel: ReturnType<NonNullable<WOPRPluginContext["getChannelProviders"]>>[0],
 	ctx: WOPRPluginContext,
 ): void {
 	channel.registerCommand({
@@ -358,9 +357,7 @@ function registerAcceptCommand(
  * Register /friends command
  */
 function registerFriendsCommand(
-	channel: ReturnType<
-		NonNullable<WOPRPluginContext["getChannelProviders"]>
-	>[0],
+	channel: ReturnType<NonNullable<WOPRPluginContext["getChannelProviders"]>>[0],
 	ctx: WOPRPluginContext,
 ): void {
 	channel.registerCommand({
@@ -391,9 +388,7 @@ function registerFriendsCommand(
  * Register /unfriend command
  */
 function registerUnfriendCommand(
-	channel: ReturnType<
-		NonNullable<WOPRPluginContext["getChannelProviders"]>
-	>[0],
+	channel: ReturnType<NonNullable<WOPRPluginContext["getChannelProviders"]>>[0],
 	ctx: WOPRPluginContext,
 ): void {
 	channel.registerCommand({
@@ -422,9 +417,7 @@ function registerUnfriendCommand(
  * Register /grant command for granting capabilities to friends
  */
 function registerGrantCommand(
-	channel: ReturnType<
-		NonNullable<WOPRPluginContext["getChannelProviders"]>
-	>[0],
+	channel: ReturnType<NonNullable<WOPRPluginContext["getChannelProviders"]>>[0],
 	ctx: WOPRPluginContext,
 ): void {
 	channel.registerCommand({
@@ -466,9 +459,7 @@ function registerGrantCommand(
  * Register message parser for FRIEND_REQUEST
  */
 function registerFriendRequestParser(
-	channel: ReturnType<
-		NonNullable<WOPRPluginContext["getChannelProviders"]>
-	>[0],
+	channel: ReturnType<NonNullable<WOPRPluginContext["getChannelProviders"]>>[0],
 	ctx: WOPRPluginContext,
 ): void {
 	channel.addMessageParser({
@@ -553,9 +544,7 @@ function registerFriendRequestParser(
  * Register message parser for FRIEND_ACCEPT
  */
 function registerFriendAcceptParser(
-	channel: ReturnType<
-		NonNullable<WOPRPluginContext["getChannelProviders"]>
-	>[0],
+	channel: ReturnType<NonNullable<WOPRPluginContext["getChannelProviders"]>>[0],
 	ctx: WOPRPluginContext,
 ): void {
 	channel.addMessageParser({

@@ -5,12 +5,16 @@
  * Peers can join topics to find each other without prior knowledge.
  */
 
-import Hyperswarm from "hyperswarm";
 import { createHash } from "crypto";
+import Hyperswarm from "hyperswarm";
+import { getSwarmOptions } from "./config.js";
 import { getIdentity, shortKey } from "./identity.js";
 import { addPeer, grantAccess } from "./trust.js";
-import { getSwarmOptions } from "./config.js";
-import type { DiscoveredPeer, DiscoveryProfile, ConnectionResult } from "./types.js";
+import type {
+	ConnectionResult,
+	DiscoveredPeer,
+	DiscoveryProfile,
+} from "./types.js";
 import { EXIT_OK, EXIT_PEER_OFFLINE, EXIT_UNAUTHORIZED } from "./types.js";
 
 // Discovery state
@@ -20,381 +24,467 @@ const activeTopics: Map<string, Buffer> = new Map();
 const discoveredPeers: Map<string, DiscoveredPeer> = new Map();
 const peerSockets: Map<string, any> = new Map(); // Track sockets by peer publicKey
 const swarmKeyToProfileKey: Map<string, string> = new Map(); // Map Hyperswarm key to profile key
-let connectionHandler: ((peer: DiscoveryProfile, topic: string) => Promise<ConnectionResult>) | null = null;
+let connectionHandler:
+	| ((peer: DiscoveryProfile, topic: string) => Promise<ConnectionResult>)
+	| null = null;
 let logFn: ((msg: string) => void) | null = null;
 
 /**
  * Hash a topic name to a 32-byte key for DHT
  */
 function hashTopic(topic: string): Buffer {
-  return createHash("sha256").update(`wopr:discovery:${topic}`).digest();
+	return createHash("sha256").update(`wopr:discovery:${topic}`).digest();
 }
 
 /**
  * Initialize discovery system
  */
 export async function initDiscovery(
-  onConnectionRequest: (peer: DiscoveryProfile, topic: string) => Promise<ConnectionResult>,
-  logger?: (msg: string) => void
+	onConnectionRequest: (
+		peer: DiscoveryProfile,
+		topic: string,
+	) => Promise<ConnectionResult>,
+	logger?: (msg: string) => void,
 ): Promise<void> {
-  if (discoverySwarm) {
-    await shutdownDiscovery();
-  }
+	if (discoverySwarm) {
+		await shutdownDiscovery();
+	}
 
-  connectionHandler = onConnectionRequest;
-  logFn = logger || console.log;
+	connectionHandler = onConnectionRequest;
+	logFn = logger || console.log;
 
-  const identity = getIdentity();
-  if (!identity) {
-    throw new Error("Identity required for discovery");
-  }
+	const identity = getIdentity();
+	if (!identity) {
+		throw new Error("Identity required for discovery");
+	}
 
-  // Initialize profile
-  myProfile = {
-    id: shortKey(identity.publicKey),
-    publicKey: identity.publicKey,
-    encryptPub: identity.encryptPub,
-    content: {},
-    topics: [],
-    updated: Date.now(),
-  };
+	// Initialize profile
+	myProfile = {
+		id: shortKey(identity.publicKey),
+		publicKey: identity.publicKey,
+		encryptPub: identity.encryptPub,
+		content: {},
+		topics: [],
+		updated: Date.now(),
+	};
 
-  // Create discovery swarm with custom bootstrap if configured
-  const swarmOpts = getSwarmOptions();
-  logFn?.(`Creating discovery swarm with options: ${JSON.stringify(swarmOpts)}`);
-  discoverySwarm = new Hyperswarm(swarmOpts);
+	// Create discovery swarm with custom bootstrap if configured
+	const swarmOpts = getSwarmOptions();
+	logFn?.(
+		`Creating discovery swarm with options: ${JSON.stringify(swarmOpts)}`,
+	);
+	discoverySwarm = new Hyperswarm(swarmOpts);
 
-  // Handle swarm-level errors to prevent crashes
-  (discoverySwarm as any).on("error", (err: Error) => {
-    logFn?.(`[discovery] Swarm error: ${err.message}`);
-  });
+	// Handle swarm-level errors to prevent crashes
+	(discoverySwarm as any).on("error", (err: Error) => {
+		logFn?.(`[discovery] Swarm error: ${err.message}`);
+	});
 
-  discoverySwarm.on("connection", async (socket, peerInfo) => {
-    const remotePubkey = peerInfo.publicKey?.toString("hex");
-    logFn?.(`Discovery connection from ${remotePubkey ? shortKey(remotePubkey) : "unknown"}`);
-    logFn?.(`Connection info - client: ${peerInfo.client}, topics: ${peerInfo.topics?.length || 0}`);
+	discoverySwarm.on("connection", async (socket, peerInfo) => {
+		const remotePubkey = peerInfo.publicKey?.toString("hex");
+		logFn?.(
+			`Discovery connection from ${remotePubkey ? shortKey(remotePubkey) : "unknown"}`,
+		);
+		logFn?.(
+			`Connection info - client: ${peerInfo.client}, topics: ${peerInfo.topics?.length || 0}`,
+		);
 
-    // Setup keepalive ping every 10 seconds
-    const keepaliveInterval = setInterval(() => {
-      try {
-        socket.write(JSON.stringify({ type: "ping", ts: Date.now() }));
-      } catch {
-        clearInterval(keepaliveInterval);
-      }
-    }, 10000);
+		// Setup keepalive ping every 10 seconds
+		const keepaliveInterval = setInterval(() => {
+			try {
+				socket.write(JSON.stringify({ type: "ping", ts: Date.now() }));
+			} catch {
+				clearInterval(keepaliveInterval);
+			}
+		}, 10000);
 
-    // Clean up keepalive on socket close/error
-    socket.on("close", () => {
-      clearInterval(keepaliveInterval);
-      logFn?.(`[discovery] Socket closed for ${remotePubkey ? shortKey(remotePubkey) : "unknown"}`);
-    });
-    socket.on("error", (err: Error) => {
-      clearInterval(keepaliveInterval);
-      logFn?.(`[discovery] Socket error: ${err.message}`);
-    });
+		// Clean up keepalive on socket close/error
+		socket.on("close", () => {
+			clearInterval(keepaliveInterval);
+			logFn?.(
+				`[discovery] Socket closed for ${remotePubkey ? shortKey(remotePubkey) : "unknown"}`,
+			);
+		});
+		socket.on("error", (err: Error) => {
+			clearInterval(keepaliveInterval);
+			logFn?.(`[discovery] Socket error: ${err.message}`);
+		});
 
-    // Exchange profiles
-    const profileMsg = JSON.stringify({
-      type: "profile",
-      profile: myProfile,
-    });
-    logFn?.(`Sending profile (${profileMsg.length} bytes)`);
-    const writeResult = socket.write(profileMsg);
-    logFn?.(`Write result: ${writeResult}`);
+		// Exchange profiles
+		const profileMsg = JSON.stringify({
+			type: "profile",
+			profile: myProfile,
+		});
+		logFn?.(`Sending profile (${profileMsg.length} bytes)`);
+		const writeResult = socket.write(profileMsg);
+		logFn?.(`Write result: ${writeResult}`);
 
-    socket.on("data", async (data: Buffer) => {
-      logFn?.(`Received data (${data.length} bytes): ${data.toString().slice(0, 100)}...`);
-      try {
-        const msg = JSON.parse(data.toString());
-        logFn?.(`Parsed message type: ${msg.type}`);
+		socket.on("data", async (data: Buffer) => {
+			logFn?.(
+				`Received data (${data.length} bytes): ${data.toString().slice(0, 100)}...`,
+			);
+			try {
+				const msg = JSON.parse(data.toString());
+				logFn?.(`Parsed message type: ${msg.type}`);
 
-        if (msg.type === "profile" && msg.profile) {
-          const peer = msg.profile as DiscoveryProfile;
-          discoveredPeers.set(peer.publicKey, peer);
-          peerSockets.set(peer.publicKey, socket); // Track socket for this peer
-          if (remotePubkey) {
-            swarmKeyToProfileKey.set(remotePubkey, peer.publicKey); // Map swarm key to profile key
-          }
-          logFn?.(`Discovered peer: ${peer.id}, total peers: ${discoveredPeers.size}`);
-        } else if (msg.type === "connect_request" && msg.topic) {
-          // Handle connection request
-          if (connectionHandler && myProfile) {
-            const result = await connectionHandler(msg.profile, msg.topic);
-            socket.write(JSON.stringify({
-              type: "connect_response",
-              ...result,
-            }));
+				if (msg.type === "profile" && msg.profile) {
+					const peer = msg.profile as DiscoveryProfile;
+					discoveredPeers.set(peer.publicKey, peer);
+					peerSockets.set(peer.publicKey, socket); // Track socket for this peer
+					if (remotePubkey) {
+						swarmKeyToProfileKey.set(remotePubkey, peer.publicKey); // Map swarm key to profile key
+					}
+					logFn?.(
+						`Discovered peer: ${peer.id}, total peers: ${discoveredPeers.size}`,
+					);
+				} else if (msg.type === "connect_request" && msg.topic) {
+					// Handle connection request
+					if (connectionHandler && myProfile) {
+						const result = await connectionHandler(msg.profile, msg.topic);
+						socket.write(
+							JSON.stringify({
+								type: "connect_response",
+								...result,
+							}),
+						);
 
-            if (result.accept && msg.profile) {
-              // Grant access
-              grantAccess(msg.profile.publicKey, result.sessions || ["*"], ["inject"], msg.profile.encryptPub);
-              addPeer(msg.profile.publicKey, result.sessions || ["*"], ["inject"], msg.profile.encryptPub);
-              logFn?.(`Granted access to ${msg.profile.id}`);
-            }
-          }
-        } else if (msg.type === "connect_response") {
-          // Handle connection response (stored for later retrieval)
-          if (msg.accept && remotePubkey) {
-            // Look up profile key from swarm key
-            const profileKey = swarmKeyToProfileKey.get(remotePubkey);
-            const peer = profileKey ? discoveredPeers.get(profileKey) : null;
-            if (peer) {
-              peer.connected = true;
-              peer.grantedSessions = msg.sessions;
-              // Auto-grant bidirectional access - they accepted us, so we grant them access to message us back
-              grantAccess(peer.publicKey, msg.sessions || ["*"], ["inject", "message"], peer.encryptPub);
-              addPeer(peer.publicKey, msg.sessions || ["*"], ["inject", "message"], peer.encryptPub);
-              logFn?.(`Connection accepted by ${peer.id}, sessions: ${msg.sessions}, auto-granted bidirectional access`);
-            } else {
-              logFn?.(`connect_response received but peer not found for swarm key ${shortKey(remotePubkey)}`);
-            }
-          }
-        } else if (msg.type === "ping") {
-          // Respond to keepalive ping with pong
-          socket.write(JSON.stringify({ type: "pong", ts: msg.ts }));
-        } else if (msg.type === "pong") {
-          // Keepalive pong received - connection is alive
-          // No action needed, just keeps the connection active
-        } else if (msg.type === "grant_update" && msg.grants) {
-          // Peer is notifying us of updated grants for us
-          const profileKey = swarmKeyToProfileKey.get(remotePubkey || "");
-          const peer = profileKey ? discoveredPeers.get(profileKey) : null;
-          if (peer) {
-            peer.grantedSessions = msg.grants.sessions || peer.grantedSessions;
-            logFn?.(`Grant update from ${peer.id}: sessions=${msg.grants.sessions}`);
-          }
-        }
-      } catch (err) {
-        logFn?.(`Discovery message error: ${err}`);
-      }
-    });
+						if (result.accept && msg.profile) {
+							// Grant access
+							grantAccess(
+								msg.profile.publicKey,
+								result.sessions || ["*"],
+								["inject"],
+								msg.profile.encryptPub,
+							);
+							addPeer(
+								msg.profile.publicKey,
+								result.sessions || ["*"],
+								["inject"],
+								msg.profile.encryptPub,
+							);
+							logFn?.(`Granted access to ${msg.profile.id}`);
+						}
+					}
+				} else if (msg.type === "connect_response") {
+					// Handle connection response (stored for later retrieval)
+					if (msg.accept && remotePubkey) {
+						// Look up profile key from swarm key
+						const profileKey = swarmKeyToProfileKey.get(remotePubkey);
+						const peer = profileKey ? discoveredPeers.get(profileKey) : null;
+						if (peer) {
+							peer.connected = true;
+							peer.grantedSessions = msg.sessions;
+							// Auto-grant bidirectional access - they accepted us, so we grant them access to message us back
+							grantAccess(
+								peer.publicKey,
+								msg.sessions || ["*"],
+								["inject", "message"],
+								peer.encryptPub,
+							);
+							addPeer(
+								peer.publicKey,
+								msg.sessions || ["*"],
+								["inject", "message"],
+								peer.encryptPub,
+							);
+							logFn?.(
+								`Connection accepted by ${peer.id}, sessions: ${msg.sessions}, auto-granted bidirectional access`,
+							);
+						} else {
+							logFn?.(
+								`connect_response received but peer not found for swarm key ${shortKey(remotePubkey)}`,
+							);
+						}
+					}
+				} else if (msg.type === "ping") {
+					// Respond to keepalive ping with pong
+					socket.write(JSON.stringify({ type: "pong", ts: msg.ts }));
+				} else if (msg.type === "pong") {
+					// Keepalive pong received - connection is alive
+					// No action needed, just keeps the connection active
+				} else if (msg.type === "grant_update" && msg.grants) {
+					// Peer is notifying us of updated grants for us
+					const profileKey = swarmKeyToProfileKey.get(remotePubkey || "");
+					const peer = profileKey ? discoveredPeers.get(profileKey) : null;
+					if (peer) {
+						peer.grantedSessions = msg.grants.sessions || peer.grantedSessions;
+						logFn?.(
+							`Grant update from ${peer.id}: sessions=${msg.grants.sessions}`,
+						);
+					}
+				}
+			} catch (err) {
+				logFn?.(`Discovery message error: ${err}`);
+			}
+		});
 
-    socket.on("error", (err: Error) => {
-      logFn?.(`Discovery socket error: ${err.message}`);
-    });
-  });
+		socket.on("error", (err: Error) => {
+			logFn?.(`Discovery socket error: ${err.message}`);
+		});
+	});
 
-  logFn?.("Discovery initialized");
+	logFn?.("Discovery initialized");
 }
 
 /**
  * Join a discovery topic
  */
 export async function joinTopic(topic: string): Promise<void> {
-  if (!discoverySwarm) {
-    throw new Error("Discovery not initialized");
-  }
+	if (!discoverySwarm) {
+		throw new Error("Discovery not initialized");
+	}
 
-  if (activeTopics.has(topic)) {
-    return; // Already in topic
-  }
+	if (activeTopics.has(topic)) {
+		return; // Already in topic
+	}
 
-  const topicHash = hashTopic(topic);
-  activeTopics.set(topic, topicHash);
+	const topicHash = hashTopic(topic);
+	activeTopics.set(topic, topicHash);
 
-  if (myProfile) {
-    myProfile.topics = Array.from(activeTopics.keys());
-    myProfile.updated = Date.now();
-  }
+	if (myProfile) {
+		myProfile.topics = Array.from(activeTopics.keys());
+		myProfile.updated = Date.now();
+	}
 
-  discoverySwarm.join(topicHash, { server: true, client: true });
-  logFn?.(`Joined topic: ${topic}`);
+	discoverySwarm.join(topicHash, { server: true, client: true });
+	logFn?.(`Joined topic: ${topic}`);
 }
 
 /**
  * Leave a discovery topic
  */
 export async function leaveTopic(topic: string): Promise<void> {
-  if (!discoverySwarm) {
-    return;
-  }
+	if (!discoverySwarm) {
+		return;
+	}
 
-  const topicHash = activeTopics.get(topic);
-  if (!topicHash) {
-    return; // Not in topic
-  }
+	const topicHash = activeTopics.get(topic);
+	if (!topicHash) {
+		return; // Not in topic
+	}
 
-  activeTopics.delete(topic);
+	activeTopics.delete(topic);
 
-  if (myProfile) {
-    myProfile.topics = Array.from(activeTopics.keys());
-    myProfile.updated = Date.now();
-  }
+	if (myProfile) {
+		myProfile.topics = Array.from(activeTopics.keys());
+		myProfile.updated = Date.now();
+	}
 
-  await discoverySwarm.leave(topicHash);
-  logFn?.(`Left topic: ${topic}`);
+	await discoverySwarm.leave(topicHash);
+	logFn?.(`Left topic: ${topic}`);
 }
 
 /**
  * Get list of active topics
  */
 export function getTopics(): string[] {
-  return Array.from(activeTopics.keys());
+	return Array.from(activeTopics.keys());
 }
 
 /**
  * Get discovered peers, optionally filtered by topic
  */
 export function getDiscoveredPeers(topic?: string): DiscoveredPeer[] {
-  const peers = Array.from(discoveredPeers.values());
+	const peers = Array.from(discoveredPeers.values());
 
-  if (topic) {
-    return peers.filter(p => p.topics?.includes(topic));
-  }
+	if (topic) {
+		return peers.filter((p) => p.topics?.includes(topic));
+	}
 
-  return peers;
+	return peers;
 }
 
 /**
  * Request connection with a discovered peer
  */
-export async function requestConnection(peerId: string): Promise<ConnectionResult> {
-  if (!discoverySwarm || !myProfile) {
-    return { accept: false, code: EXIT_PEER_OFFLINE, message: "Discovery not initialized" };
-  }
+export async function requestConnection(
+	peerId: string,
+): Promise<ConnectionResult> {
+	if (!discoverySwarm || !myProfile) {
+		return {
+			accept: false,
+			code: EXIT_PEER_OFFLINE,
+			message: "Discovery not initialized",
+		};
+	}
 
-  // Find peer
-  let peer: DiscoveredPeer | undefined;
-  for (const p of discoveredPeers.values()) {
-    if (p.id === peerId || p.publicKey === peerId) {
-      peer = p;
-      break;
-    }
-  }
+	// Find peer
+	let peer: DiscoveredPeer | undefined;
+	for (const p of discoveredPeers.values()) {
+		if (p.id === peerId || p.publicKey === peerId) {
+			peer = p;
+			break;
+		}
+	}
 
-  if (!peer) {
-    return { accept: false, code: EXIT_PEER_OFFLINE, message: "Peer not found" };
-  }
+	if (!peer) {
+		return {
+			accept: false,
+			code: EXIT_PEER_OFFLINE,
+			message: "Peer not found",
+		};
+	}
 
-  // Find a common topic
-  const commonTopic = peer.topics?.find(t => activeTopics.has(t));
-  if (!commonTopic) {
-    return { accept: false, code: EXIT_UNAUTHORIZED, message: "No common topic with peer" };
-  }
+	// Find a common topic
+	const commonTopic = peer.topics?.find((t) => activeTopics.has(t));
+	if (!commonTopic) {
+		return {
+			accept: false,
+			code: EXIT_UNAUTHORIZED,
+			message: "No common topic with peer",
+		};
+	}
 
-  // Get the socket for this peer
-  const socket = peerSockets.get(peer.publicKey);
-  if (!socket) {
-    logFn?.(`No socket found for peer ${peer.id}`);
-    return { accept: false, code: EXIT_PEER_OFFLINE, message: "No active connection to peer" };
-  }
+	// Get the socket for this peer
+	const socket = peerSockets.get(peer.publicKey);
+	if (!socket) {
+		logFn?.(`No socket found for peer ${peer.id}`);
+		return {
+			accept: false,
+			code: EXIT_PEER_OFFLINE,
+			message: "No active connection to peer",
+		};
+	}
 
-  // Send connect_request message
-  logFn?.(`Sending connect_request to ${peer.id} for topic ${commonTopic}`);
-  try {
-    socket.write(JSON.stringify({
-      type: "connect_request",
-      topic: commonTopic,
-      profile: myProfile,
-    }));
-  } catch (err) {
-    logFn?.(`Failed to send connect_request: ${err}`);
-    return { accept: false, code: EXIT_PEER_OFFLINE, message: "Failed to send request" };
-  }
+	// Send connect_request message
+	logFn?.(`Sending connect_request to ${peer.id} for topic ${commonTopic}`);
+	try {
+		socket.write(
+			JSON.stringify({
+				type: "connect_request",
+				topic: commonTopic,
+				profile: myProfile,
+			}),
+		);
+	} catch (err) {
+		logFn?.(`Failed to send connect_request: ${err}`);
+		return {
+			accept: false,
+			code: EXIT_PEER_OFFLINE,
+			message: "Failed to send request",
+		};
+	}
 
-  // Wait for connect_response
-  return new Promise((resolve) => {
-    const timeout = setTimeout(() => {
-      resolve({ accept: false, code: EXIT_PEER_OFFLINE, message: "Connection timeout" });
-    }, 10000);
+	// Wait for connect_response
+	return new Promise((resolve) => {
+		const timeout = setTimeout(() => {
+			resolve({
+				accept: false,
+				code: EXIT_PEER_OFFLINE,
+				message: "Connection timeout",
+			});
+		}, 10000);
 
-    // Check if peer accepted (relies on connect_response handler)
-    const checkInterval = setInterval(() => {
-      const updatedPeer = discoveredPeers.get(peer!.publicKey);
-      if (updatedPeer?.connected) {
-        clearTimeout(timeout);
-        clearInterval(checkInterval);
-        resolve({
-          accept: true,
-          code: EXIT_OK,
-          sessions: updatedPeer.grantedSessions || ["*"],
-        });
-      }
-    }, 500);
-  });
+		// Check if peer accepted (relies on connect_response handler)
+		const checkInterval = setInterval(() => {
+			const updatedPeer = discoveredPeers.get(peer!.publicKey);
+			if (updatedPeer?.connected) {
+				clearTimeout(timeout);
+				clearInterval(checkInterval);
+				resolve({
+					accept: true,
+					code: EXIT_OK,
+					sessions: updatedPeer.grantedSessions || ["*"],
+				});
+			}
+		}, 500);
+	});
 }
 
 /**
  * Get current profile
  */
 export function getProfile(): DiscoveryProfile | null {
-  return myProfile;
+	return myProfile;
 }
 
 /**
  * Update profile content
  */
-export function updateProfile(content: Record<string, unknown>): DiscoveryProfile | null {
-  if (!myProfile) {
-    return null;
-  }
+export function updateProfile(
+	content: Record<string, unknown>,
+): DiscoveryProfile | null {
+	if (!myProfile) {
+		return null;
+	}
 
-  myProfile.content = { ...myProfile.content, ...content };
-  myProfile.updated = Date.now();
+	myProfile.content = { ...myProfile.content, ...content };
+	myProfile.updated = Date.now();
 
-  // Broadcast updated profile to all connections
-  if (discoverySwarm) {
-    for (const conn of discoverySwarm.connections) {
-      try {
-        conn.write(JSON.stringify({
-          type: "profile",
-          profile: myProfile,
-        }));
-      } catch {
-        // Ignore write errors
-      }
-    }
-  }
+	// Broadcast updated profile to all connections
+	if (discoverySwarm) {
+		for (const conn of discoverySwarm.connections) {
+			try {
+				conn.write(
+					JSON.stringify({
+						type: "profile",
+						profile: myProfile,
+					}),
+				);
+			} catch {
+				// Ignore write errors
+			}
+		}
+	}
 
-  return myProfile;
+	return myProfile;
 }
 
 /**
  * Notify a connected peer of updated grants
  */
-export function notifyGrantUpdate(peerPublicKey: string, sessions: string[]): boolean {
-  const socket = peerSockets.get(peerPublicKey);
-  if (!socket) {
-    logFn?.(`Cannot notify grant update - no socket for peer ${shortKey(peerPublicKey)}`);
-    return false;
-  }
+export function notifyGrantUpdate(
+	peerPublicKey: string,
+	sessions: string[],
+): boolean {
+	const socket = peerSockets.get(peerPublicKey);
+	if (!socket) {
+		logFn?.(
+			`Cannot notify grant update - no socket for peer ${shortKey(peerPublicKey)}`,
+		);
+		return false;
+	}
 
-  try {
-    socket.write(JSON.stringify({
-      type: "grant_update",
-      grants: { sessions },
-    }));
-    logFn?.(`Sent grant update to ${shortKey(peerPublicKey)}: sessions=${sessions}`);
-    return true;
-  } catch (err) {
-    logFn?.(`Failed to send grant update: ${err}`);
-    return false;
-  }
+	try {
+		socket.write(
+			JSON.stringify({
+				type: "grant_update",
+				grants: { sessions },
+			}),
+		);
+		logFn?.(
+			`Sent grant update to ${shortKey(peerPublicKey)}: sessions=${sessions}`,
+		);
+		return true;
+	} catch (err) {
+		logFn?.(`Failed to send grant update: ${err}`);
+		return false;
+	}
 }
 
 /**
  * Shutdown discovery system
  */
 export async function shutdownDiscovery(): Promise<void> {
-  if (discoverySwarm) {
-    // Leave all topics
-    for (const [topic, hash] of activeTopics) {
-      try {
-        await discoverySwarm.leave(hash);
-      } catch {
-        // Ignore errors during shutdown
-      }
-    }
+	if (discoverySwarm) {
+		// Leave all topics
+		for (const [topic, hash] of activeTopics) {
+			try {
+				await discoverySwarm.leave(hash);
+			} catch {
+				// Ignore errors during shutdown
+			}
+		}
 
-    await discoverySwarm.destroy();
-    discoverySwarm = null;
-  }
+		await discoverySwarm.destroy();
+		discoverySwarm = null;
+	}
 
-  activeTopics.clear();
-  discoveredPeers.clear();
-  peerSockets.clear();
-  swarmKeyToProfileKey.clear();
-  myProfile = null;
-  connectionHandler = null;
-  logFn = null;
+	activeTopics.clear();
+	discoveredPeers.clear();
+	peerSockets.clear();
+	swarmKeyToProfileKey.clear();
+	myProfile = null;
+	connectionHandler = null;
+	logFn = null;
 }
