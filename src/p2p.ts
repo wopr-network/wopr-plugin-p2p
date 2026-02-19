@@ -22,6 +22,7 @@ import {
 	verifySignature,
 } from "./identity.js";
 import { getRateLimiter, getReplayProtector } from "./rate-limit.js";
+import { incrementStat } from "./stats.js";
 import {
 	addPeer,
 	findPeer,
@@ -263,7 +264,10 @@ export async function sendP2PLog(
 					ts: Date.now(),
 				});
 
-				socket.write(JSON.stringify(msg) + "\n");
+				const logMsgStr = JSON.stringify(msg) + "\n";
+				socket.write(logMsgStr);
+				incrementStat("messagesSent");
+				incrementStat("bytesSent", logMsgStr.length);
 
 				let buffer = "";
 				socket.on("data", async (data: Buffer) => {
@@ -444,7 +448,10 @@ export async function sendP2PInject(
 				log(
 					`[sendP2PInject] Sending inject message with requestId ${requestId.slice(0, 8)}...`,
 				);
-				socket.write(JSON.stringify(msg) + "\n");
+				const injectMsgStr = JSON.stringify(msg) + "\n";
+				socket.write(injectMsgStr);
+				incrementStat("messagesSent");
+				incrementStat("bytesSent", injectMsgStr.length);
 				log(`[sendP2PInject] Inject sent, waiting for response...`);
 
 				let buffer = "";
@@ -889,6 +896,7 @@ function handleConnection(
 	});
 
 	socket.on("data", async (data: Buffer) => {
+		incrementStat("bytesReceived", data.length);
 		buffer += data.toString();
 		if (!buffer.includes("\n")) return;
 

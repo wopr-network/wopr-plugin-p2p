@@ -156,23 +156,48 @@ function startUIServer(port: number, pluginDir: string): http.Server {
 	const server = http.createServer((req, res) => {
 		const rawUrl = req.url === "/" ? "/ui.js" : req.url || "/ui.js";
 
+		// CORS preflight for WebMCP API routes
+		if (req.method === "OPTIONS" && rawUrl.startsWith("/api/webmcp/")) {
+			res.setHeader("Access-Control-Allow-Origin", "*");
+			res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+			res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+			res.writeHead(204);
+			res.end();
+			return;
+		}
+
 		// WebMCP JSON API routes
 		if (req.method === "GET" && rawUrl === "/api/webmcp/status") {
 			res.setHeader("Content-Type", "application/json");
 			res.setHeader("Access-Control-Allow-Origin", "*");
-			res.end(JSON.stringify(buildP2pStatusResponse()));
+			try {
+				res.end(JSON.stringify(buildP2pStatusResponse()));
+			} catch {
+				res.writeHead(500);
+				res.end(JSON.stringify({ error: "Internal server error" }));
+			}
 			return;
 		}
 		if (req.method === "GET" && rawUrl === "/api/webmcp/peers") {
 			res.setHeader("Content-Type", "application/json");
 			res.setHeader("Access-Control-Allow-Origin", "*");
-			res.end(JSON.stringify(buildListPeersResponse()));
+			try {
+				res.end(JSON.stringify(buildListPeersResponse()));
+			} catch {
+				res.writeHead(500);
+				res.end(JSON.stringify({ error: "Internal server error" }));
+			}
 			return;
 		}
 		if (req.method === "GET" && rawUrl === "/api/webmcp/stats") {
 			res.setHeader("Content-Type", "application/json");
 			res.setHeader("Access-Control-Allow-Origin", "*");
-			res.end(JSON.stringify(buildP2pStatsResponse()));
+			try {
+				res.end(JSON.stringify(buildP2pStatsResponse()));
+			} catch {
+				res.writeHead(500);
+				res.end(JSON.stringify({ error: "Internal server error" }));
+			}
 			return;
 		}
 
