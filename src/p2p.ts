@@ -791,6 +791,8 @@ export interface P2PCallbacks {
 		message: string,
 		peerKey?: string,
 	) => Promise<string>;
+	// Called when a new connection is established
+	onConnection?: () => void;
 	// Logging output
 	onLog: (msg: string) => void;
 }
@@ -862,6 +864,9 @@ function handleConnection(
 	myPublicKey: string,
 	callbacks: P2PCallbacks,
 ): void {
+	if (callbacks.onConnection) {
+		callbacks.onConnection();
+	}
 	const { onLogMessage, onInjectMessage, onLog } = callbacks;
 	const rateLimiter = getRateLimiter();
 	const replayProtector = getReplayProtector();
