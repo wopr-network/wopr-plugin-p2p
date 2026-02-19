@@ -87,6 +87,7 @@ import {
 	getFriendSecurityContext,
 	syncAllFriendsToSecurity,
 } from "./security-integration.js";
+import { incrementStat, resetStats } from "./stats.js";
 import { migrateJsonToSql } from "./storage-migration.js";
 import { p2pPluginSchema } from "./storage-schema.js";
 import {
@@ -103,6 +104,11 @@ import {
 } from "./trust.js";
 import type { A2AToolContext, P2PToolDefinition } from "./types.js";
 import { EXIT_OK } from "./types.js";
+import {
+	buildListPeersResponse,
+	buildP2pStatsResponse,
+	buildP2pStatusResponse,
+} from "./webmcp-tools.js";
 
 // Setup winston logger
 const logger = winston.createLogger({
@@ -149,6 +155,41 @@ function startUIServer(port: number, pluginDir: string): http.Server {
 
 	const server = http.createServer((req, res) => {
 		const rawUrl = req.url === "/" ? "/ui.js" : req.url || "/ui.js";
+
+		// WebMCP JSON API routes
+		if (req.method === "GET" && rawUrl === "/api/webmcp/status") {
+			res.setHeader("Content-Type", "application/json");
+			res.setHeader("Access-Control-Allow-Origin", "*");
+			try {
+				res.end(JSON.stringify(buildP2pStatusResponse()));
+			} catch (err) {
+				res.statusCode = 500;
+				res.end(JSON.stringify({ error: "Internal error" }));
+			}
+			return;
+		}
+		if (req.method === "GET" && rawUrl === "/api/webmcp/peers") {
+			res.setHeader("Content-Type", "application/json");
+			res.setHeader("Access-Control-Allow-Origin", "*");
+			try {
+				res.end(JSON.stringify(buildListPeersResponse()));
+			} catch (err) {
+				res.statusCode = 500;
+				res.end(JSON.stringify({ error: "Internal error" }));
+			}
+			return;
+		}
+		if (req.method === "GET" && rawUrl === "/api/webmcp/stats") {
+			res.setHeader("Content-Type", "application/json");
+			res.setHeader("Access-Control-Allow-Origin", "*");
+			try {
+				res.end(JSON.stringify(buildP2pStatsResponse()));
+			} catch (err) {
+				res.statusCode = 500;
+				res.end(JSON.stringify({ error: "Internal error" }));
+			}
+			return;
+		}
 
 		// Decode percent-encoded characters to catch %2e%2e%2f and similar
 		let decoded: string;
@@ -584,6 +625,20 @@ const p2pTools: P2PToolDefinition[] = [
 		},
 	},
 
+	// Stats Tool
+	{
+		name: "p2p_stats",
+		description:
+			"Get P2P network statistics: messages relayed, bandwidth, uptime.",
+		inputSchema: {
+			type: "object",
+			properties: {},
+		},
+		handler: async () => {
+			return toolResult(JSON.stringify(buildP2pStatsResponse()));
+		},
+	},
+
 	// Grant Access Tools
 	{
 		name: "p2p_grant_access",
@@ -952,6 +1007,7 @@ const plugin: WOPRPlugin = {
 		p2pListener = createP2PListener({
 			// Log handler - mailbox style, just stores message in session history
 			onLogMessage: (session, message, peerKey) => {
+				incrementStat("messagesRelayed");
 				const peerId = peerKey ? shortKey(peerKey) : "unknown";
 				ctx?.log.info(`P2P log message: ${peerId} -> ${session}`);
 				ctx?.log.info(`P2P message content: ${message.slice(0, 200)}...`);
@@ -972,6 +1028,7 @@ const plugin: WOPRPlugin = {
 
 			// Inject handler - invokes AI and returns response
 			onInjectMessage: async (session, message, peerKey) => {
+				incrementStat("messagesRelayed");
 				const peerId = peerKey ? shortKey(peerKey) : "unknown";
 				ctx?.log.info(`P2P inject message: ${peerId} -> ${session}`);
 				ctx?.log.info(`P2P message content: ${message.slice(0, 200)}...`);
@@ -1038,6 +1095,9 @@ const plugin: WOPRPlugin = {
 					return "Error: AI injection not available";
 				}
 			},
+
+			// Connection tracking
+			onConnection: () => incrementStat("connectionsTotal"),
 
 			// Logging output
 			onLog: (msg) => ctx?.log.info(`[p2p] ${msg}`),
@@ -1319,6 +1379,9 @@ const plugin: WOPRPlugin = {
 
 	async shutdown() {
 		logger.info("[p2p] Shutting down...");
+
+		// Reset stats
+		resetStats();
 
 		// Unregister pairing extension and commands
 		if (ctx?.unregisterExtension) {

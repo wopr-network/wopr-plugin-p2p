@@ -263,8 +263,8 @@ export async function sendP2PLog(
 					ts: Date.now(),
 				});
 
-				socket.write(JSON.stringify(msg) + "\n");
-
+				const logMsgStr = JSON.stringify(msg) + "\n";
+				socket.write(logMsgStr);
 				let buffer = "";
 				socket.on("data", async (data: Buffer) => {
 					buffer += data.toString();
@@ -444,7 +444,8 @@ export async function sendP2PInject(
 				log(
 					`[sendP2PInject] Sending inject message with requestId ${requestId.slice(0, 8)}...`,
 				);
-				socket.write(JSON.stringify(msg) + "\n");
+				const injectMsgStr = JSON.stringify(msg) + "\n";
+				socket.write(injectMsgStr);
 				log(`[sendP2PInject] Inject sent, waiting for response...`);
 
 				let buffer = "";
@@ -791,6 +792,8 @@ export interface P2PCallbacks {
 		message: string,
 		peerKey?: string,
 	) => Promise<string>;
+	// Called when a new connection is established
+	onConnection?: () => void;
 	// Logging output
 	onLog: (msg: string) => void;
 }
@@ -862,6 +865,9 @@ function handleConnection(
 	myPublicKey: string,
 	callbacks: P2PCallbacks,
 ): void {
+	if (callbacks.onConnection) {
+		callbacks.onConnection();
+	}
 	const { onLogMessage, onInjectMessage, onLog } = callbacks;
 	const rateLimiter = getRateLimiter();
 	const replayProtector = getReplayProtector();
