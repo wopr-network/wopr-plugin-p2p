@@ -101,25 +101,18 @@ describe("WebMCP Tools", () => {
 		it("should return correct shape with defaults", () => {
 			const response = buildP2pStatsResponse();
 			assert.strictEqual(response.messagesRelayed, 0);
-			assert.strictEqual(response.messagesSent, 0);
 			assert.strictEqual(response.connectionsTotal, 0);
-			assert.strictEqual(response.bytesReceived, 0);
-			assert.strictEqual(response.bytesSent, 0);
 			assert.ok(typeof response.uptime === "string");
 			assert.ok(typeof response.startedAt === "string");
-			assert.ok(response.bandwidth !== undefined);
 		});
 
 		it("should reflect incremented stats", () => {
 			incrementStat("messagesRelayed", 42);
-			incrementStat("bytesReceived", 2048);
+			incrementStat("connectionsTotal", 3);
 
 			const response = buildP2pStatsResponse();
 			assert.strictEqual(response.messagesRelayed, 42);
-			assert.strictEqual(response.bytesReceived, 2048);
-
-			const bandwidth = response.bandwidth as Record<string, string>;
-			assert.strictEqual(bandwidth.received, "2.0 KB");
+			assert.strictEqual(response.connectionsTotal, 3);
 		});
 
 		it("should not contain private keys", () => {

@@ -104,14 +104,7 @@ export function buildP2pStatsResponse(): Record<string, unknown> {
 
 	return {
 		messagesRelayed: stats.messagesRelayed,
-		messagesSent: stats.messagesSent,
 		connectionsTotal: stats.connectionsTotal,
-		bytesReceived: stats.bytesReceived,
-		bytesSent: stats.bytesSent,
-		bandwidth: {
-			received: formatBytes(stats.bytesReceived),
-			sent: formatBytes(stats.bytesSent),
-		},
 		uptime: formatUptime(uptimeMs),
 		startedAt: new Date(stats.startedAt).toISOString(),
 	};

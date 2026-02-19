@@ -6,19 +6,13 @@
 
 export interface P2PStats {
 	messagesRelayed: number;
-	messagesSent: number;
 	connectionsTotal: number;
-	bytesReceived: number;
-	bytesSent: number;
 	startedAt: number;
 }
 
 let stats: P2PStats = {
 	messagesRelayed: 0,
-	messagesSent: 0,
 	connectionsTotal: 0,
-	bytesReceived: 0,
-	bytesSent: 0,
 	startedAt: Date.now(),
 };
 
@@ -36,10 +30,7 @@ export function incrementStat(
 export function resetStats(): void {
 	stats = {
 		messagesRelayed: 0,
-		messagesSent: 0,
 		connectionsTotal: 0,
-		bytesReceived: 0,
-		bytesSent: 0,
 		startedAt: Date.now(),
 	};
 }

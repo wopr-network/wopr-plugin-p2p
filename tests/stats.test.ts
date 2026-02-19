@@ -15,10 +15,7 @@ describe("P2P Stats", () => {
 	it("should return zeros after reset", () => {
 		const stats = getP2PStats();
 		assert.strictEqual(stats.messagesRelayed, 0);
-		assert.strictEqual(stats.messagesSent, 0);
 		assert.strictEqual(stats.connectionsTotal, 0);
-		assert.strictEqual(stats.bytesReceived, 0);
-		assert.strictEqual(stats.bytesSent, 0);
 		assert.ok(stats.startedAt > 0);
 	});
 
@@ -28,35 +25,24 @@ describe("P2P Stats", () => {
 		assert.strictEqual(stats.messagesRelayed, 1);
 	});
 
-	it("should increment a stat by a custom amount", () => {
-		incrementStat("bytesReceived", 1024);
-		const stats = getP2PStats();
-		assert.strictEqual(stats.bytesReceived, 1024);
-	});
-
 	it("should increment multiple stats independently", () => {
 		incrementStat("messagesRelayed", 5);
 		incrementStat("connectionsTotal", 3);
-		incrementStat("bytesSent", 2048);
 
 		const stats = getP2PStats();
 		assert.strictEqual(stats.messagesRelayed, 5);
 		assert.strictEqual(stats.connectionsTotal, 3);
-		assert.strictEqual(stats.bytesSent, 2048);
-		assert.strictEqual(stats.messagesSent, 0);
 	});
 
 	it("should reset all stats to zero", () => {
 		incrementStat("messagesRelayed", 10);
 		incrementStat("connectionsTotal", 5);
-		incrementStat("bytesReceived", 4096);
 
 		resetStats();
 
 		const stats = getP2PStats();
 		assert.strictEqual(stats.messagesRelayed, 0);
 		assert.strictEqual(stats.connectionsTotal, 0);
-		assert.strictEqual(stats.bytesReceived, 0);
 	});
 
 	it("should return a copy (not a reference)", () => {
