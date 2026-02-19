@@ -5,9 +5,9 @@
  * P2P peers can only have "message" or "inject" - both sandboxed, both untrusted.
  */
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
-import { homedir } from "os";
-import { join } from "path";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { homedir } from "node:os";
+import { join } from "node:path";
 import { getFriend, getFriends, setFriendCaps } from "./friends.js";
 import type { Friend } from "./types.js";
 

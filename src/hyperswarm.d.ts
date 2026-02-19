@@ -1,6 +1,6 @@
 declare module "hyperswarm" {
-	import { EventEmitter } from "events";
-	import { Duplex } from "stream";
+	import { EventEmitter } from "node:events";
+	import { Duplex } from "node:stream";
 
 	interface PeerInfo {
 		publicKey?: Buffer;

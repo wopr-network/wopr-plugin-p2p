@@ -33,6 +33,7 @@ import {
 import type {
 	ClaimResult,
 	EphemeralKeyPair,
+	InviteToken,
 	KeyRotation,
 	P2PMessage,
 	SendResult,
@@ -559,7 +560,7 @@ export async function claimToken(
 		return { code: EXIT_INVALID, message: "No identity" };
 	}
 
-	let token;
+	let token: InviteToken;
 	try {
 		token = parseInviteToken(tokenStr);
 	} catch (err) {
