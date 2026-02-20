@@ -16,7 +16,7 @@ importers:
         version: 14.25.1
       hyperswarm:
         specifier: ^4.7.15
-        version: 4.16.0
+        version: 4.17.0
       winston:
         specifier: ^3.11.0
         version: 3.19.0
@@ -325,16 +325,16 @@ packages:
   async@3.2.6:
     resolution: {integrity: sha512-htCUDlxyyCLMgaM3xXg0C0LW2xqfuQ6p05pCEIsXuyQ+a1koYKTuBMzRNwmybfLgvJDMd0r1LTn4+E0Ti6C2AA==}
 
-  b4a@1.7.3:
-    resolution: {integrity: sha512-5Q2mfq2WfGuFp3uS//0s6baOJLMoVduPYVeNmDYxu5OUA1/cBfvr2RIS7vi62LdNj/urk1hfmj867I3qt6uZ7Q==}
+  b4a@1.8.0:
+    resolution: {integrity: sha512-qRuSmNSkGQaHwNbM7J78Wwy+ghLEYF1zNrSeMxj4Kgw6y33O3mXcQ6Ie9fRvfU/YnxWkOchPXbaLb73TkIsfdg==}
     peerDependencies:
       react-native-b4a: '*'
     peerDependenciesMeta:
       react-native-b4a:
         optional: true
 
-  bare-addon-resolve@1.9.6:
-    resolution: {integrity: sha512-hvOQY1zDK6u0rSr27T6QlULoVLwi8J2k8HHHJlxSfT7XQdQ/7bsS+AnjYkHtu/TkL+gm3aMXAKucJkJAbrDG/g==}
+  bare-addon-resolve@1.10.0:
+    resolution: {integrity: sha512-sSd0jieRJlDaODOzj0oe0RjFVC1QI0ZIjGIdPkbrTXsdVVtENg14c+lHHAhHwmWCZ2nQlMhy8jA3Y5LYPc/isA==}
     peerDependencies:
       bare-url: '*'
     peerDependenciesMeta:
@@ -366,8 +366,8 @@ packages:
   blind-relay@1.4.0:
     resolution: {integrity: sha512-6xt7fDfCs6eGmNNym6I9N42jmjcMQn2qwwOVnkP9ZnrkXFk6c4/tdO1xqRmDEzKzV8gigd+DVdCUG/RUYnen7Q==}
 
-  bogon@1.1.0:
-    resolution: {integrity: sha512-a6SnToksXHuUlgeMvI/txWmTcKz7c7iBa8f0HbXL4toN1Uza/CTQ4F7n9jSDX49TCpxv3KUP100q4sZfwLyLiw==}
+  bogon@1.2.0:
+    resolution: {integrity: sha512-FqOBr/1VMzCOsoJd+fzNUMarUYki2+TKt07A2+xaulsNx4r53iJ7MV5k0jbqg7W2U0CsLqxCZOrFibdG6h6HSg==}
 
   color-convert@3.1.3:
     resolution: {integrity: sha512-fasDH2ont2GqF5HpyO4w0+BcewlhHEZOFn9c1ckZdHpJ56Qb7MHhH/IcJZbBGgvdtwdwNbLvxiBEdg336iA9Sg==}
@@ -391,11 +391,11 @@ packages:
   compact-encoding-net@1.2.0:
     resolution: {integrity: sha512-LVXpNpF7PGQeHRVVLGgYWzuVoYAaDZvKUsUxRioGfkotzvOh4AzoQF1HBH3zMNaSnx7gJXuUr3hkjnijaH/Eng==}
 
-  compact-encoding@2.18.0:
-    resolution: {integrity: sha512-goACAOlhMI2xo5jGOMUDfOLnGdRE1jGfyZ+zie8N5114nHrbPIqf6GLUtzbLof6DSyrERlYRm3EcBplte5LcQw==}
+  compact-encoding@2.19.0:
+    resolution: {integrity: sha512-bPQlzwxgzsuOp0wB6G9TVoZ2tGFANJckQfM10xLKUS2fbLe+fFZG6Gi1wYehcMMTcjvtil8oOJSsToMOlCSu4g==}
 
-  dht-rpc@6.24.2:
-    resolution: {integrity: sha512-XcYHF3pXP1NyoNOxoTjbwiIjysNUWF5OHO8qfBQhn6kUL4Gbu25w1iJz6nEK2NyebqVI/6wog3FPHKBwiGWEgA==}
+  dht-rpc@6.26.2:
+    resolution: {integrity: sha512-54n+8km7AWNBWO4OXcZwsn8jy1TjCmnqaJLdWbsWl8hfJaqE90pSvHsmTHtvgPRKxKatAEeKE4gCUCac8TCAPA==}
 
   discord-api-types@0.38.39:
     resolution: {integrity: sha512-XRdDQvZvID1XvcFftjSmd4dcmMi/RL/jSy5sduBDAvCGFcNFHThdIQXCEBDZFe52lCNEzuIL0QJoKYAmRmxLUA==}
@@ -441,12 +441,12 @@ packages:
   hypercore-id-encoding@1.3.0:
     resolution: {integrity: sha512-W6sHdGo5h7LXEsoWfKf/KfuROZmZRQDlGqJF2EPHW+noCK66Vvr0+zE6cL0vqQi18s0kQPeN7Sq3QyR0Ytc2VQ==}
 
-  hyperdht@6.28.0:
-    resolution: {integrity: sha512-roUPpAF4ktS4pA10G1XjcWLamrOhfJd4R7U1e7W4rDouDA5GiZ8/pl4D5IXseizbHNRuAWh+Dz9IcpRiH9YqeQ==}
+  hyperdht@6.29.0:
+    resolution: {integrity: sha512-okIpelpIhRTBDCCe2CNWfLHbVSQ5DPbl1Npb1zet8SqrkCsYF27RHJ04IaYqiigHI9y0KZgjOHdZbejalbFVoQ==}
     hasBin: true
 
-  hyperswarm@4.16.0:
-    resolution: {integrity: sha512-f86RsI1qP/nbBTv4wYxOhu1JnWvGZgiC1w69aRFn0xGSavLMWjvbbVspVApOnRjiPKpYVVGACXdrvEOrL3rHdw==}
+  hyperswarm@4.17.0:
+    resolution: {integrity: sha512-oe86sK961Ueg7rvDN/veFwG8xH+Iv6vObPhGDkPJcDVxk/NduW41ZhAcVDnHzRbm7S0eLU7WaDUvehOYoKSpRQ==}
 
   inherits@2.0.4:
     resolution: {integrity: sha512-k/vGaX4/Yla3WzyMCvTQOXYeIHvqOKtnqBduzTHpzpQZzAskKMhZ2K+EnBiSM9zGSoIFeMpXKxa4dYeZIQqewQ==}
@@ -552,8 +552,8 @@ packages:
   string_decoder@1.3.0:
     resolution: {integrity: sha512-hkRX8U1WjJFd8LsDJ2yQ/wWWxaopEsABU1XfkM8A+j0+85JAGppt16cr1Whg6KIbb4okU6Mql6BOj+uup/wKeA==}
 
-  text-decoder@1.2.3:
-    resolution: {integrity: sha512-3/o9z3X0X0fTupwsYvR03pJ/DjWuqqrfwBgTQzdWDiQSm9KitAyz/9WqsT2JQW7KV2m+bC2ol/zqpW37NHxLaA==}
+  text-decoder@1.2.7:
+    resolution: {integrity: sha512-vlLytXkeP4xvEq2otHeJfSQIRyWxo/oZGEbXrtEEF9Hnmrdly59sUbzZ/QgyWuLYHctCHxFF4tRQZNQ9k60ExQ==}
 
   text-hex@1.0.0:
     resolution: {integrity: sha512-uuVGNWzgJ4yhRaNSiubPY7OjISw4sw4E5Uv0wbjp+OzcbmVU/rsT8ujgcXJhn9ypzsgr5vlzpPqP+MBBKcGvbg==}
@@ -810,7 +810,7 @@ snapshots:
 
   '@hyperswarm/secret-stream@6.9.1':
     dependencies:
-      b4a: 1.7.3
+      b4a: 1.8.0
       hypercore-crypto: 3.6.1
       noise-curve-ed: 2.1.0
       noise-handshake: 4.2.0
@@ -861,9 +861,9 @@ snapshots:
 
   async@3.2.6: {}
 
-  b4a@1.7.3: {}
+  b4a@1.8.0: {}
 
-  bare-addon-resolve@1.9.6:
+  bare-addon-resolve@1.10.0:
     dependencies:
       bare-module-resolve: 1.12.1
       bare-semver: 1.0.2
@@ -878,16 +878,16 @@ snapshots:
 
   bits-to-bytes@1.3.0:
     dependencies:
-      b4a: 1.7.3
+      b4a: 1.8.0
     transitivePeerDependencies:
       - react-native-b4a
 
   blind-relay@1.4.0:
     dependencies:
-      b4a: 1.7.3
+      b4a: 1.8.0
       bare-events: 2.8.2
       bits-to-bytes: 1.3.0
-      compact-encoding: 2.18.0
+      compact-encoding: 2.19.0
       compact-encoding-bitfield: 1.0.0
       protomux: 3.10.1
       sodium-universal: 5.0.1
@@ -898,9 +898,9 @@ snapshots:
       - react-native-b4a
       - sodium-javascript
 
-  bogon@1.1.0:
+  bogon@1.2.0:
     dependencies:
-      compact-encoding: 2.18.0
+      compact-encoding: 2.19.0
       compact-encoding-net: 1.2.0
     transitivePeerDependencies:
       - react-native-b4a
@@ -922,28 +922,28 @@ snapshots:
 
   compact-encoding-bitfield@1.0.0:
     dependencies:
-      compact-encoding: 2.18.0
+      compact-encoding: 2.19.0
     transitivePeerDependencies:
       - react-native-b4a
 
   compact-encoding-net@1.2.0:
     dependencies:
-      compact-encoding: 2.18.0
+      compact-encoding: 2.19.0
     transitivePeerDependencies:
       - react-native-b4a
 
-  compact-encoding@2.18.0:
+  compact-encoding@2.19.0:
     dependencies:
-      b4a: 1.7.3
+      b4a: 1.8.0
     transitivePeerDependencies:
       - react-native-b4a
 
-  dht-rpc@6.24.2:
+  dht-rpc@6.26.2:
     dependencies:
       adaptive-timeout: 1.0.1
-      b4a: 1.7.3
+      b4a: 1.8.0
       bare-events: 2.8.2
-      compact-encoding: 2.18.0
+      compact-encoding: 2.19.0
       compact-encoding-net: 1.2.0
       fast-fifo: 1.3.2
       kademlia-routing-table: 1.0.6
@@ -1033,8 +1033,8 @@ snapshots:
 
   hypercore-crypto@3.6.1:
     dependencies:
-      b4a: 1.7.3
-      compact-encoding: 2.18.0
+      b4a: 1.8.0
+      compact-encoding: 2.19.0
       sodium-universal: 5.0.1
     transitivePeerDependencies:
       - bare-url
@@ -1043,21 +1043,21 @@ snapshots:
 
   hypercore-id-encoding@1.3.0:
     dependencies:
-      b4a: 1.7.3
+      b4a: 1.8.0
       z32: 1.1.0
     transitivePeerDependencies:
       - react-native-b4a
 
-  hyperdht@6.28.0:
+  hyperdht@6.29.0:
     dependencies:
       '@hyperswarm/secret-stream': 6.9.1
-      b4a: 1.7.3
+      b4a: 1.8.0
       bare-events: 2.8.2
       blind-relay: 1.4.0
-      bogon: 1.1.0
-      compact-encoding: 2.18.0
+      bogon: 1.2.0
+      compact-encoding: 2.19.0
       compact-encoding-net: 1.2.0
-      dht-rpc: 6.24.2
+      dht-rpc: 6.26.2
       hypercore-crypto: 3.6.1
       hypercore-id-encoding: 1.3.0
       noise-curve-ed: 2.1.0
@@ -1075,11 +1075,11 @@ snapshots:
       - react-native-b4a
       - sodium-javascript
 
-  hyperswarm@4.16.0:
+  hyperswarm@4.17.0:
     dependencies:
-      b4a: 1.7.3
+      b4a: 1.8.0
       bare-events: 2.8.2
-      hyperdht: 6.28.0
+      hyperdht: 6.29.0
       safety-catch: 1.0.2
       shuffled-priority-queue: 2.1.0
       streamx: 2.23.0
@@ -1125,7 +1125,7 @@ snapshots:
 
   noise-curve-ed@2.1.0:
     dependencies:
-      b4a: 1.7.3
+      b4a: 1.8.0
       nanoassert: 2.0.0
       sodium-universal: 5.0.1
     transitivePeerDependencies:
@@ -1135,7 +1135,7 @@ snapshots:
 
   noise-handshake@4.2.0:
     dependencies:
-      b4a: 1.7.3
+      b4a: 1.8.0
       nanoassert: 2.0.0
       sodium-universal: 5.0.1
     transitivePeerDependencies:
@@ -1149,8 +1149,8 @@ snapshots:
 
   protomux@3.10.1:
     dependencies:
-      b4a: 1.7.3
-      compact-encoding: 2.18.0
+      b4a: 1.8.0
+      compact-encoding: 2.19.0
       queue-tick: 1.0.1
       safety-catch: 1.0.2
       unslab: 1.3.0
@@ -1167,13 +1167,13 @@ snapshots:
 
   record-cache@1.2.0:
     dependencies:
-      b4a: 1.7.3
+      b4a: 1.8.0
     transitivePeerDependencies:
       - react-native-b4a
 
   require-addon@1.2.0:
     dependencies:
-      bare-addon-resolve: 1.9.6
+      bare-addon-resolve: 1.10.0
     transitivePeerDependencies:
       - bare-url
 
@@ -1200,7 +1200,7 @@ snapshots:
 
   sodium-secretstream@1.2.0:
     dependencies:
-      b4a: 1.7.3
+      b4a: 1.8.0
       sodium-universal: 5.0.1
     transitivePeerDependencies:
       - bare-url
@@ -1219,7 +1219,7 @@ snapshots:
     dependencies:
       events-universal: 1.0.1
       fast-fifo: 1.3.2
-      text-decoder: 1.2.3
+      text-decoder: 1.2.7
     transitivePeerDependencies:
       - bare-abort-controller
       - react-native-b4a
@@ -1228,9 +1228,9 @@ snapshots:
     dependencies:
       safe-buffer: 5.2.1
 
-  text-decoder@1.2.3:
+  text-decoder@1.2.7:
     dependencies:
-      b4a: 1.7.3
+      b4a: 1.8.0
     transitivePeerDependencies:
       - react-native-b4a
 
@@ -1257,7 +1257,7 @@ snapshots:
 
   udx-native@1.19.2:
     dependencies:
-      b4a: 1.7.3
+      b4a: 1.8.0
       bare-events: 2.8.2
       require-addon: 1.2.0
       streamx: 2.23.0
@@ -1274,7 +1274,7 @@ snapshots:
 
   unslab@1.3.0:
     dependencies:
-      b4a: 1.7.3
+      b4a: 1.8.0
     transitivePeerDependencies:
       - react-native-b4a
 
@@ -1308,7 +1308,7 @@ snapshots:
 
   z32@1.1.0:
     dependencies:
-      b4a: 1.7.3
+      b4a: 1.8.0
     transitivePeerDependencies:
       - react-native-b4a
 
