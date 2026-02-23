@@ -204,7 +204,7 @@ export async function sendP2PLog(
 	const ephemeral = generateEphemeralKeyPair();
 
 	// Handle swarm errors to prevent crashes
-	(swarm as any).on("error", (err: Error) => {
+	swarm.on("error", (err: Error) => {
 		log(`[sendP2PLog] Swarm error: ${err.message}`);
 	});
 
@@ -367,7 +367,7 @@ export async function sendP2PInject(
 	const requestId = randomBytes(16).toString("hex");
 
 	// Handle swarm errors to prevent crashes
-	(swarm as any).on("error", (err: Error) => {
+	swarm.on("error", (err: Error) => {
 		log(`[sendP2PInject] Swarm error: ${err.message}`);
 	});
 
@@ -573,7 +573,7 @@ export async function claimToken(
 	const ephemeral = generateEphemeralKeyPair();
 
 	// Handle swarm errors to prevent crashes
-	(swarm as any).on("error", (err: Error) => {
+	swarm.on("error", (err: Error) => {
 		log(`[claimInvite] Swarm error: ${err.message}`);
 	});
 
@@ -686,7 +686,7 @@ export async function sendKeyRotation(
 	const ephemeral = generateEphemeralKeyPair();
 
 	// Handle swarm errors to prevent crashes
-	(swarm as any).on("error", (err: Error) => {
+	swarm.on("error", (err: Error) => {
 		log(`[notifyKeyRotation] Swarm error: ${err.message}`);
 	});
 
@@ -845,7 +845,7 @@ export function createP2PListener(
 	const swarm = new Hyperswarm(getSwarmOptions());
 
 	// Handle swarm-level errors to prevent crashes
-	(swarm as any).on("error", (err: Error) => {
+	swarm.on("error", (err: Error) => {
 		onLog(`[listenP2P] Swarm error: ${err.message}`);
 	});
 
