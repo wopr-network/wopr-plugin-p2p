@@ -264,7 +264,7 @@ export function verifySignature(
 	signerKey?: string,
 ): boolean {
 	const { sig, ...payload } = msg;
-	const key = signerKey || (msg as any).from || (msg as any).iss;
+	const key = signerKey || msg.from || msg.iss;
 	if (!key) return false;
 
 	try {

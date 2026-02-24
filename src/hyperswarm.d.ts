@@ -37,6 +37,7 @@ declare module "hyperswarm" {
 		): this;
 		on(event: "update", listener: () => void): this;
 		on(event: "close", listener: () => void): this;
+		on(event: "error", listener: (err: Error) => void): this;
 	}
 
 	export = Hyperswarm;

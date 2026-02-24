@@ -76,7 +76,7 @@ export async function initDiscovery(
 	discoverySwarm = new Hyperswarm(swarmOpts);
 
 	// Handle swarm-level errors to prevent crashes
-	(discoverySwarm as any).on("error", (err: Error) => {
+	discoverySwarm.on("error", (err: Error) => {
 		logFn?.(`[discovery] Swarm error: ${err.message}`);
 	});
 
