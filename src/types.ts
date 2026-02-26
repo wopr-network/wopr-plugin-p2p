@@ -164,7 +164,7 @@ export interface Profile {
 	id: string;
 	publicKey: string;
 	encryptPub: string;
-	content: any;
+	content: Record<string, unknown>;
 	topics: string[];
 	updated: number;
 	sig: string;

@@ -213,7 +213,7 @@ export async function initDiscovery(
 						);
 					}
 				}
-			} catch (err) {
+			} catch (err: unknown) {
 				logFn?.(`Discovery message error: ${err}`);
 			}
 		});
@@ -356,7 +356,7 @@ export async function requestConnection(
 				profile: myProfile,
 			}),
 		);
-	} catch (err) {
+	} catch (err: unknown) {
 		logFn?.(`Failed to send connect_request: ${err}`);
 		return {
 			accept: false,
@@ -456,7 +456,7 @@ export function notifyGrantUpdate(
 			`Sent grant update to ${shortKey(peerPublicKey)}: sessions=${sessions}`,
 		);
 		return true;
-	} catch (err) {
+	} catch (err: unknown) {
 		logFn?.(`Failed to send grant update: ${err}`);
 		return false;
 	}

@@ -132,10 +132,10 @@ export async function registerP2PSlashCommands(
 		SlashCommandBuilder = discordjs.SlashCommandBuilder;
 		REST = discordjs.REST;
 		Routes = discordjs.Routes;
-	} catch (err: any) {
+	} catch (err: unknown) {
 		console.warn(
 			"discord.js not available (optional peer dependency):",
-			err.message,
+			err instanceof Error ? err.message : String(err),
 		);
 		return;
 	}
@@ -214,7 +214,7 @@ export async function registerP2PSlashCommands(
 				`[p2p] Registered ${p2pCommands.length} P2P global commands (merged with ${otherCommands.length} existing)`,
 			);
 		}
-	} catch (error) {
+	} catch (error: unknown) {
 		logger.error({
 			msg: "[p2p] Failed to register P2P slash commands",
 			error: String(error),
