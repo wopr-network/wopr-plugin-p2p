@@ -126,6 +126,7 @@ const logger = winston.createLogger({
 let ctx: WOPRPluginContext | null = null;
 let p2pListener: Hyperswarm | null = null;
 let uiServer: http.Server | null = null;
+const cleanups: Array<() => void> = [];
 
 // Track sessions currently being P2P injected into
 // This prevents recursive inject loops (A injects to B, B tries to inject back to A)
@@ -162,7 +163,7 @@ function startUIServer(port: number, pluginDir: string): http.Server {
 			res.setHeader("Access-Control-Allow-Origin", "*");
 			try {
 				res.end(JSON.stringify(buildP2pStatusResponse()));
-			} catch (err) {
+			} catch (err: unknown) {
 				res.statusCode = 500;
 				res.end(JSON.stringify({ error: "Internal error" }));
 			}
@@ -173,7 +174,7 @@ function startUIServer(port: number, pluginDir: string): http.Server {
 			res.setHeader("Access-Control-Allow-Origin", "*");
 			try {
 				res.end(JSON.stringify(buildListPeersResponse()));
-			} catch (err) {
+			} catch (err: unknown) {
 				res.statusCode = 500;
 				res.end(JSON.stringify({ error: "Internal error" }));
 			}
@@ -184,7 +185,7 @@ function startUIServer(port: number, pluginDir: string): http.Server {
 			res.setHeader("Access-Control-Allow-Origin", "*");
 			try {
 				res.end(JSON.stringify(buildP2pStatsResponse()));
-			} catch (err) {
+			} catch (err: unknown) {
 				res.statusCode = 500;
 				res.end(JSON.stringify({ error: "Internal error" }));
 			}
@@ -253,10 +254,9 @@ function startUIServer(port: number, pluginDir: string): http.Server {
 /**
  * Create A2A tool result
  */
-function toolResult(text: string, isError = false): A2AToolResult {
+function toolResult(text: string): A2AToolResult {
 	return {
 		content: [{ type: "text", text }],
-		isError,
 	};
 }
 
@@ -266,7 +266,7 @@ function toolResult(text: string, isError = false): A2AToolResult {
 const p2pTools: P2PToolDefinition[] = [
 	// Identity Tools
 	{
-		name: "p2p_get_identity",
+		name: "p2p.getIdentity",
 		description:
 			"Get your P2P identity (public key, short ID). Creates one if none exists.",
 		inputSchema: {
@@ -290,7 +290,7 @@ const p2pTools: P2PToolDefinition[] = [
 		},
 	},
 	{
-		name: "p2p_rotate_keys",
+		name: "p2p.rotateKeys",
 		description:
 			"Rotate your P2P identity keys. Use for security or scheduled rotation.",
 		inputSchema: {
@@ -321,7 +321,7 @@ const p2pTools: P2PToolDefinition[] = [
 						try {
 							await sendKeyRotation(peer.publicKey, rotation);
 							logger.info(`[p2p] Notified ${peer.id} of key rotation`);
-						} catch (err) {
+						} catch (err: unknown) {
 							logger.warn(`[p2p] Failed to notify ${peer.id}: ${err}`);
 						}
 					}
@@ -335,15 +335,15 @@ const p2pTools: P2PToolDefinition[] = [
 						peersNotified: notifyPeers ? getPeers().length : 0,
 					}),
 				);
-			} catch (err) {
-				return toolResult(`Key rotation failed: ${err}`, true);
+			} catch (err: unknown) {
+				return toolResult(`Error: Key rotation failed: ${err}`);
 			}
 		},
 	},
 
 	// Peer Management Tools
 	{
-		name: "p2p_list_peers",
+		name: "p2p.listPeers",
 		description: "List all known P2P peers with their access permissions.",
 		inputSchema: {
 			type: "object",
@@ -367,7 +367,7 @@ const p2pTools: P2PToolDefinition[] = [
 		},
 	},
 	{
-		name: "p2p_name_peer",
+		name: "p2p.namePeer",
 		description: "Give a friendly name to a peer for easier reference.",
 		inputSchema: {
 			type: "object",
@@ -381,13 +381,13 @@ const p2pTools: P2PToolDefinition[] = [
 			try {
 				namePeer(args.peerId as string, args.name as string);
 				return toolResult(`Peer ${args.peerId} named "${args.name}"`);
-			} catch (err) {
-				return toolResult(`Failed to name peer: ${err}`, true);
+			} catch (err: unknown) {
+				return toolResult(`Error: Failed to name peer: ${err}`);
 			}
 		},
 	},
 	{
-		name: "p2p_revoke_peer",
+		name: "p2p.revokePeer",
 		description:
 			"Revoke access for a peer. They will no longer be able to send messages.",
 		inputSchema: {
@@ -401,15 +401,15 @@ const p2pTools: P2PToolDefinition[] = [
 			try {
 				revokePeer(args.peerId as string);
 				return toolResult(`Access revoked for peer ${args.peerId}`);
-			} catch (err) {
-				return toolResult(`Failed to revoke peer: ${err}`, true);
+			} catch (err: unknown) {
+				return toolResult(`Error: Failed to revoke peer: ${err}`);
 			}
 		},
 	},
 
 	// Invite/Token Tools
 	{
-		name: "p2p_create_invite",
+		name: "p2p.createInvite",
 		description:
 			"Create an invite token for another peer to claim. They need your public key first.",
 		inputSchema: {
@@ -446,13 +446,13 @@ const p2pTools: P2PToolDefinition[] = [
 						expiresIn: `${(args.expireHours as number) || 168} hours`,
 					}),
 				);
-			} catch (err) {
-				return toolResult(`Failed to create invite: ${err}`, true);
+			} catch (err: unknown) {
+				return toolResult(`Error: Failed to create invite: ${err}`);
 			}
 		},
 	},
 	{
-		name: "p2p_claim_invite",
+		name: "p2p.claimInvite",
 		description:
 			"Claim an invite token from another peer. They must be online.",
 		inputSchema: {
@@ -482,14 +482,14 @@ const p2pTools: P2PToolDefinition[] = [
 					}),
 				);
 			} else {
-				return toolResult(`Claim failed: ${result.message}`, true);
+				return toolResult(`Error: Claim failed: ${result.message}`);
 			}
 		},
 	},
 
 	// Messaging Tools
 	{
-		name: "p2p_log_message",
+		name: "p2p.logMessage",
 		description:
 			"Log a message to a peer's session (mailbox style). Message is stored in their session history for later viewing. Does NOT invoke the AI - just delivers the message. Use p2p_inject_message if you need an AI response.",
 		inputSchema: {
@@ -523,12 +523,12 @@ const p2pTools: P2PToolDefinition[] = [
 					}),
 				);
 			} else {
-				return toolResult(`Log failed: ${result.message}`, true);
+				return toolResult(`Error: Log failed: ${result.message}`);
 			}
 		},
 	},
 	{
-		name: "p2p_inject_message",
+		name: "p2p.injectMessage",
 		description:
 			"Inject a message into a peer's session and get the AI's response back. This invokes the peer's AI which processes the message and generates a response. Use for questions or tasks that need a reply. Use p2p_log_message for fire-and-forget notifications. NOTE: Cannot be used while processing an incoming P2P inject - just respond with text instead.",
 		inputSchema: {
@@ -558,10 +558,9 @@ const p2pTools: P2PToolDefinition[] = [
 					`[p2p] BLOCKED: Session ${context.sessionName} tried to call p2p_inject_message while being P2P injected into`,
 				);
 				return toolResult(
-					`BLOCKED: You are currently responding to a P2P inject. ` +
-						`Do NOT use p2p_inject_message to reply - just respond with text. ` +
+					`Error: BLOCKED: You are currently responding to a P2P inject. ` +
+						`Do NOT use p2p.injectMessage to reply - just respond with text. ` +
 						`Your text response will be automatically returned to the caller.`,
-					true,
 				);
 			}
 
@@ -583,13 +582,13 @@ const p2pTools: P2PToolDefinition[] = [
 					}),
 				);
 			} else {
-				return toolResult(`Inject failed: ${result.message}`, true);
+				return toolResult(`Error: Inject failed: ${result.message}`);
 			}
 		},
 	},
 	// Status Tools
 	{
-		name: "p2p_status",
+		name: "p2p.status",
 		description:
 			"Get P2P network status including identity, peers, and listener state.",
 		inputSchema: {
@@ -627,7 +626,7 @@ const p2pTools: P2PToolDefinition[] = [
 
 	// Stats Tool
 	{
-		name: "p2p_stats",
+		name: "p2p.stats",
 		description:
 			"Get P2P network statistics: messages relayed, bandwidth, uptime.",
 		inputSchema: {
@@ -641,7 +640,7 @@ const p2pTools: P2PToolDefinition[] = [
 
 	// Grant Access Tools
 	{
-		name: "p2p_grant_access",
+		name: "p2p.grantAccess",
 		description:
 			"Manually grant a peer access to specific sessions without using tokens. Updates existing peer record if found.",
 		inputSchema: {
@@ -700,13 +699,13 @@ const p2pTools: P2PToolDefinition[] = [
 						notified, // Whether the peer was notified in real-time
 					}),
 				);
-			} catch (err) {
-				return toolResult(`Failed to grant access: ${err}`, true);
+			} catch (err: unknown) {
+				return toolResult(`Error: Failed to grant access: ${err}`);
 			}
 		},
 	},
 	{
-		name: "p2p_list_grants",
+		name: "p2p.listGrants",
 		description: "List all access grants (who can send to which sessions).",
 		inputSchema: {
 			type: "object",
@@ -742,7 +741,7 @@ const p2pTools: P2PToolDefinition[] = [
 
 	// Discovery Tools
 	{
-		name: "p2p_join_topic",
+		name: "p2p.joinTopic",
 		description:
 			"Join a discovery topic to find other peers. Peers in the same topic can discover each other.",
 		inputSchema: {
@@ -762,13 +761,13 @@ const p2pTools: P2PToolDefinition[] = [
 						activeTopics: getTopics(),
 					}),
 				);
-			} catch (err) {
-				return toolResult(`Failed to join topic: ${err}`, true);
+			} catch (err: unknown) {
+				return toolResult(`Error: Failed to join topic: ${err}`);
 			}
 		},
 	},
 	{
-		name: "p2p_leave_topic",
+		name: "p2p.leaveTopic",
 		description: "Leave a discovery topic.",
 		inputSchema: {
 			type: "object",
@@ -787,13 +786,13 @@ const p2pTools: P2PToolDefinition[] = [
 						activeTopics: getTopics(),
 					}),
 				);
-			} catch (err) {
-				return toolResult(`Failed to leave topic: ${err}`, true);
+			} catch (err: unknown) {
+				return toolResult(`Error: Failed to leave topic: ${err}`);
 			}
 		},
 	},
 	{
-		name: "p2p_list_topics",
+		name: "p2p.listTopics",
 		description: "List all discovery topics you've joined.",
 		inputSchema: {
 			type: "object",
@@ -810,7 +809,7 @@ const p2pTools: P2PToolDefinition[] = [
 		},
 	},
 	{
-		name: "p2p_discover_peers",
+		name: "p2p.discoverPeers",
 		description: "List peers discovered through topic-based discovery.",
 		inputSchema: {
 			type: "object",
@@ -835,7 +834,7 @@ const p2pTools: P2PToolDefinition[] = [
 		},
 	},
 	{
-		name: "p2p_connect_peer",
+		name: "p2p.connectPeer",
 		description:
 			"Request connection with a discovered peer. They will decide whether to accept.",
 		inputSchema: {
@@ -858,17 +857,16 @@ const p2pTools: P2PToolDefinition[] = [
 					);
 				} else {
 					return toolResult(
-						`Connection rejected: ${result.message || result.reason}`,
-						true,
+						`Error: Connection rejected: ${result.message || result.reason}`,
 					);
 				}
-			} catch (err) {
-				return toolResult(`Connection failed: ${err}`, true);
+			} catch (err: unknown) {
+				return toolResult(`Error: Connection failed: ${err}`);
 			}
 		},
 	},
 	{
-		name: "p2p_get_profile",
+		name: "p2p.getProfile",
 		description: "Get your discovery profile.",
 		inputSchema: {
 			type: "object",
@@ -877,7 +875,7 @@ const p2pTools: P2PToolDefinition[] = [
 		handler: async () => {
 			const profile = getProfile();
 			if (!profile) {
-				return toolResult("Discovery not initialized", true);
+				return toolResult("Error: Discovery not initialized");
 			}
 			return toolResult(
 				JSON.stringify({
@@ -891,7 +889,7 @@ const p2pTools: P2PToolDefinition[] = [
 		},
 	},
 	{
-		name: "p2p_set_profile",
+		name: "p2p.setProfile",
 		description:
 			"Update your discovery profile content. This is broadcast to peers.",
 		inputSchema: {
@@ -908,7 +906,7 @@ const p2pTools: P2PToolDefinition[] = [
 			try {
 				const profile = updateProfile(args.content as Record<string, unknown>);
 				if (!profile) {
-					return toolResult("Discovery not initialized", true);
+					return toolResult("Error: Discovery not initialized");
 				}
 				return toolResult(
 					JSON.stringify({
@@ -918,8 +916,8 @@ const p2pTools: P2PToolDefinition[] = [
 						updated: new Date(profile.updated).toISOString(),
 					}),
 				);
-			} catch (err) {
-				return toolResult(`Failed to update profile: ${err}`, true);
+			} catch (err: unknown) {
+				return toolResult(`Error: Failed to update profile: ${err}`);
 			}
 		},
 	},
@@ -932,6 +930,58 @@ const plugin: WOPRPlugin = {
 	name: "p2p",
 	version: "1.0.0",
 	description: "P2P networking with Hyperswarm, identity, trust, and A2A tools",
+
+	manifest: {
+		name: "p2p",
+		version: "1.0.0",
+		description:
+			"P2P networking with Hyperswarm, identity, trust, and A2A tools",
+		capabilities: ["p2p", "pairing"],
+		category: "network",
+		tags: ["p2p", "hyperswarm", "networking", "a2a", "identity"],
+		icon: "globe",
+		requires: {
+			network: { p2p: true },
+		},
+		provides: {
+			capabilities: [],
+		},
+		lifecycle: {
+			shutdownBehavior: "graceful",
+		},
+		configSchema: {
+			title: "P2P Plugin Configuration",
+			description:
+				"Configure P2P networking settings for Hyperswarm DHT and peer communication",
+			fields: [
+				{
+					name: "bootstrap",
+					type: "array",
+					label: "Bootstrap Nodes",
+					description:
+						"Hyperswarm DHT bootstrap nodes (e.g. ['172.24.0.1:49737'])",
+				},
+				{
+					name: "connectionTimeout",
+					type: "number",
+					label: "Connection Timeout",
+					description: "Connection timeout in milliseconds",
+				},
+				{
+					name: "uiPort",
+					type: "number",
+					label: "UI Port",
+					description: "Port for the P2P UI server (default: 7334)",
+				},
+				{
+					name: "botUsername",
+					type: "text",
+					label: "Bot Username",
+					description: "Bot username for friend protocol",
+				},
+			],
+		},
+	},
 
 	// CLI commands
 	commands: [friendCommand],
@@ -1086,7 +1136,7 @@ const plugin: WOPRPlugin = {
 								`[p2p] Session ${session} cleared from being-injected tracking`,
 							);
 						}
-					} catch (err) {
+					} catch (err: unknown) {
 						ctx?.log.error(`[p2p] Inject failed: ${err}`);
 						return `Error: Failed to process message - ${err}`;
 					}
@@ -1146,7 +1196,7 @@ const plugin: WOPRPlugin = {
 				(msg) => ctx?.log.info(`[discovery] ${msg}`),
 			);
 			ctx.log.info("Discovery system initialized");
-		} catch (err) {
+		} catch (err: unknown) {
 			ctx.log.warn(`Failed to initialize discovery: ${err}`);
 		}
 
@@ -1164,6 +1214,8 @@ const plugin: WOPRPlugin = {
 			// Register pairing A2A tools
 			ctx.registerA2AServer(buildPairingA2ATools());
 			ctx.log.info("Registered pairing A2A tools");
+
+			// A2A server unregistration not supported in plugin-types@0.2.1
 		}
 
 		// Register P2P extension for other plugins to use
@@ -1286,7 +1338,7 @@ const plugin: WOPRPlugin = {
 					`Registered !pair command on ${providers.length} channel provider(s)`,
 				);
 			}
-		} catch (err) {
+		} catch (err: unknown) {
 			ctx.log.warn(`Failed to register pairing channel commands: ${err}`);
 		}
 
@@ -1296,7 +1348,7 @@ const plugin: WOPRPlugin = {
 			registerChannelHooks(ctx);
 			registerAutoAcceptCommands(ctx);
 			ctx.log.info("Registered friend protocol channel hooks");
-		} catch (err) {
+		} catch (err: unknown) {
 			ctx.log.warn(`Failed to register channel hooks: ${err}`);
 		}
 
@@ -1326,7 +1378,7 @@ const plugin: WOPRPlugin = {
 					"[p2p] Discord config not available - P2P slash commands not registered",
 				);
 			}
-		} catch (err) {
+		} catch (err: unknown) {
 			ctx.log.warn(`[p2p] Failed to register P2P slash commands: ${err}`);
 		}
 
@@ -1337,7 +1389,7 @@ const plugin: WOPRPlugin = {
 		try {
 			syncAllFriendsToSecurity();
 			ctx.log.info("Synced friends to WOPR security model");
-		} catch (err) {
+		} catch (err: unknown) {
 			ctx.log.warn(`Failed to sync friends to security model: ${err}`);
 		}
 
@@ -1358,6 +1410,11 @@ const plugin: WOPRPlugin = {
 					description: "Manage P2P peers and invites",
 				});
 				ctx.log.info("Registered P2P UI component");
+				cleanups.push(() => {
+					if (ctx?.unregisterUiComponent) {
+						ctx.unregisterUiComponent("p2p-panel");
+					}
+				});
 			}
 
 			// Register as web extension
@@ -1369,8 +1426,13 @@ const plugin: WOPRPlugin = {
 					description: "P2P peer management",
 					category: "network",
 				});
+				cleanups.push(() => {
+					if (ctx?.unregisterWebUiExtension) {
+						ctx.unregisterWebUiExtension("p2p");
+					}
+				});
 			}
-		} catch (err) {
+		} catch (err: unknown) {
 			ctx.log.warn(`Failed to start UI server: ${err}`);
 		}
 
@@ -1379,6 +1441,16 @@ const plugin: WOPRPlugin = {
 
 	async shutdown() {
 		logger.info("[p2p] Shutting down...");
+
+		// Run all registered cleanups in reverse order
+		for (const cleanup of [...cleanups].reverse()) {
+			try {
+				cleanup();
+			} catch {
+				// Ignore errors during shutdown cleanup
+			}
+		}
+		cleanups.length = 0;
 
 		// Reset stats
 		resetStats();
@@ -1407,7 +1479,7 @@ const plugin: WOPRPlugin = {
 		try {
 			await shutdownDiscovery();
 			logger.info("[p2p] Discovery shutdown complete");
-		} catch (err) {
+		} catch (err: unknown) {
 			logger.warn(`[p2p] Discovery shutdown error: ${err}`);
 		}
 

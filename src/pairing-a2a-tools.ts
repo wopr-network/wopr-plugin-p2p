@@ -30,8 +30,8 @@ const VALID_TRUST_LEVELS: TrustLevel[] = [
 	"untrusted",
 ];
 
-function textResult(text: string, isError = false): A2AToolResult {
-	return { content: [{ type: "text", text }], isError };
+function textResult(text: string): A2AToolResult {
+	return { content: [{ type: "text", text }] };
 }
 
 export function buildPairingA2ATools(): A2AServerConfig {
@@ -40,7 +40,7 @@ export function buildPairingA2ATools(): A2AServerConfig {
 		version: "1.0.0",
 		tools: [
 			{
-				name: "pairing_generate_code",
+				name: "pairing.generateCode",
 				description:
 					"Generate a pairing code for a user. Creates the identity if it doesn't exist. The user verifies this code from any channel to link their platform account.",
 				inputSchema: {
@@ -68,7 +68,7 @@ export function buildPairingA2ATools(): A2AServerConfig {
 					const expiryMs = ((args.expiryMinutes as number) || 15) * 60 * 1000;
 
 					if (!VALID_TRUST_LEVELS.includes(trustLevel)) {
-						return textResult(`Invalid trust level: ${trustLevel}`, true);
+						return textResult(`Error: Invalid trust level: ${trustLevel}`);
 					}
 
 					try {
@@ -83,12 +83,12 @@ export function buildPairingA2ATools(): A2AServerConfig {
 							}),
 						);
 					} catch (err: unknown) {
-						return textResult(`Error: ${(err as Error).message}`, true);
+						return textResult(`Error: ${(err as Error).message}`);
 					}
 				},
 			},
 			{
-				name: "pairing_verify_code",
+				name: "pairing.verifyCode",
 				description:
 					"Verify a pairing code and link a platform sender to the identity.",
 				inputSchema: {
@@ -116,7 +116,7 @@ export function buildPairingA2ATools(): A2AServerConfig {
 						args.senderId as string,
 					);
 					if (!result) {
-						return textResult("Invalid or expired pairing code.", true);
+						return textResult("Error: Invalid or expired pairing code.");
 					}
 					return textResult(
 						JSON.stringify({
@@ -128,7 +128,7 @@ export function buildPairingA2ATools(): A2AServerConfig {
 				},
 			},
 			{
-				name: "pairing_list_identities",
+				name: "pairing.listIdentities",
 				description: "List all paired identities with their linked platforms.",
 				inputSchema: { type: "object", properties: {} },
 				async handler(): Promise<A2AToolResult> {
@@ -150,7 +150,7 @@ export function buildPairingA2ATools(): A2AServerConfig {
 				},
 			},
 			{
-				name: "pairing_resolve_trust",
+				name: "pairing.resolveTrust",
 				description:
 					"Resolve the trust level for a platform sender. Returns 'untrusted' if not paired.",
 				inputSchema: {
@@ -187,7 +187,7 @@ export function buildPairingA2ATools(): A2AServerConfig {
 				},
 			},
 			{
-				name: "pairing_remove_identity",
+				name: "pairing.removeIdentity",
 				description: "Remove an identity and all its platform links.",
 				inputSchema: {
 					type: "object",
@@ -199,7 +199,7 @@ export function buildPairingA2ATools(): A2AServerConfig {
 				async handler(args: Record<string, unknown>): Promise<A2AToolResult> {
 					const identity = await getIdentityByName(args.name as string);
 					if (!identity) {
-						return textResult(`Identity not found: ${args.name}`, true);
+						return textResult(`Error: Identity not found: ${args.name}`);
 					}
 					await removeIdentity(identity.id);
 					return textResult(
@@ -208,7 +208,7 @@ export function buildPairingA2ATools(): A2AServerConfig {
 				},
 			},
 			{
-				name: "pairing_set_trust",
+				name: "pairing.setTrust",
 				description: "Update the trust level for an existing identity.",
 				inputSchema: {
 					type: "object",
@@ -225,11 +225,11 @@ export function buildPairingA2ATools(): A2AServerConfig {
 				async handler(args: Record<string, unknown>): Promise<A2AToolResult> {
 					const identity = await getIdentityByName(args.name as string);
 					if (!identity) {
-						return textResult(`Identity not found: ${args.name}`, true);
+						return textResult(`Error: Identity not found: ${args.name}`);
 					}
 					const trustLevel = args.trustLevel as TrustLevel;
 					if (!VALID_TRUST_LEVELS.includes(trustLevel)) {
-						return textResult(`Invalid trust level: ${trustLevel}`, true);
+						return textResult(`Error: Invalid trust level: ${trustLevel}`);
 					}
 					const updated = await setIdentityTrustLevel(identity.id, trustLevel);
 					return textResult(
@@ -241,7 +241,7 @@ export function buildPairingA2ATools(): A2AServerConfig {
 				},
 			},
 			{
-				name: "pairing_link_platform",
+				name: "pairing.linkPlatform",
 				description:
 					"Manually link a platform sender to an existing identity (bypasses pairing code).",
 				inputSchema: {
@@ -265,7 +265,9 @@ export function buildPairingA2ATools(): A2AServerConfig {
 				async handler(args: Record<string, unknown>): Promise<A2AToolResult> {
 					const identity = await getIdentityByName(args.identityName as string);
 					if (!identity) {
-						return textResult(`Identity not found: ${args.identityName}`, true);
+						return textResult(
+							`Error: Identity not found: ${args.identityName}`,
+						);
 					}
 					try {
 						const updated = await linkPlatform(
@@ -283,12 +285,12 @@ export function buildPairingA2ATools(): A2AServerConfig {
 							}),
 						);
 					} catch (err: unknown) {
-						return textResult(`Error: ${(err as Error).message}`, true);
+						return textResult(`Error: ${(err as Error).message}`);
 					}
 				},
 			},
 			{
-				name: "pairing_unlink_platform",
+				name: "pairing.unlinkPlatform",
 				description: "Unlink a platform from an identity.",
 				inputSchema: {
 					type: "object",
@@ -304,7 +306,9 @@ export function buildPairingA2ATools(): A2AServerConfig {
 				async handler(args: Record<string, unknown>): Promise<A2AToolResult> {
 					const identity = await getIdentityByName(args.identityName as string);
 					if (!identity) {
-						return textResult(`Identity not found: ${args.identityName}`, true);
+						return textResult(
+							`Error: Identity not found: ${args.identityName}`,
+						);
 					}
 					const removed = await unlinkPlatform(
 						identity.id,
@@ -312,8 +316,7 @@ export function buildPairingA2ATools(): A2AServerConfig {
 					);
 					if (!removed) {
 						return textResult(
-							`No ${args.channelType} link found for "${args.identityName}"`,
-							true,
+							`Error: No ${args.channelType} link found for "${args.identityName}"`,
 						);
 					}
 					return textResult(
@@ -322,7 +325,7 @@ export function buildPairingA2ATools(): A2AServerConfig {
 				},
 			},
 			{
-				name: "pairing_list_codes",
+				name: "pairing.listCodes",
 				description: "List all pending (non-expired) pairing codes.",
 				inputSchema: { type: "object", properties: {} },
 				async handler(): Promise<A2AToolResult> {
@@ -340,7 +343,7 @@ export function buildPairingA2ATools(): A2AServerConfig {
 				},
 			},
 			{
-				name: "pairing_revoke_code",
+				name: "pairing.revokeCode",
 				description: "Revoke a pending pairing code.",
 				inputSchema: {
 					type: "object",
@@ -352,7 +355,7 @@ export function buildPairingA2ATools(): A2AServerConfig {
 				async handler(args: Record<string, unknown>): Promise<A2AToolResult> {
 					const revoked = await revokePairingCode(args.code as string);
 					if (!revoked) {
-						return textResult(`Code not found: ${args.code}`, true);
+						return textResult(`Error: Code not found: ${args.code}`);
 					}
 					return textResult(`Revoked pairing code: ${args.code}`);
 				},

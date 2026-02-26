@@ -50,7 +50,7 @@ export async function migrateJsonToSql(
 				migrated++;
 			}
 			renameSync(identityFile, identityFile + ".backup");
-		} catch (err) {
+		} catch (err: unknown) {
 			log(`Failed to migrate identity.json: ${err}`);
 		}
 	}
@@ -59,7 +59,9 @@ export async function migrateJsonToSql(
 	const peersFile = join(dataDir, "peers.json");
 	if (existsSync(peersFile)) {
 		try {
-			const peers = JSON.parse(readFileSync(peersFile, "utf-8")) as any[];
+			const peers = JSON.parse(
+				readFileSync(peersFile, "utf-8"),
+			) as P2PPeerRow[];
 			const repo = storage.getRepository<P2PPeerRow>("p2p", "peers");
 			for (const peer of peers) {
 				const existing = await repo.findFirst({ publicKey: peer.publicKey });
@@ -79,7 +81,7 @@ export async function migrateJsonToSql(
 			log(`Migrated ${peers.length} peers from peers.json`);
 			migrated++;
 			renameSync(peersFile, peersFile + ".backup");
-		} catch (err) {
+		} catch (err: unknown) {
 			log(`Failed to migrate peers.json: ${err}`);
 		}
 	}
@@ -88,7 +90,9 @@ export async function migrateJsonToSql(
 	const accessFile = join(dataDir, "access.json");
 	if (existsSync(accessFile)) {
 		try {
-			const grants = JSON.parse(readFileSync(accessFile, "utf-8")) as any[];
+			const grants = JSON.parse(
+				readFileSync(accessFile, "utf-8"),
+			) as P2PAccessGrantRow[];
 			const repo = storage.getRepository<P2PAccessGrantRow>(
 				"p2p",
 				"access_grants",
@@ -112,7 +116,7 @@ export async function migrateJsonToSql(
 			log(`Migrated ${grants.length} access grants from access.json`);
 			migrated++;
 			renameSync(accessFile, accessFile + ".backup");
-		} catch (err) {
+		} catch (err: unknown) {
 			log(`Failed to migrate access.json: ${err}`);
 		}
 	}
@@ -195,7 +199,7 @@ export async function migrateJsonToSql(
 			log(`Migrated ${total} records from friends.json`);
 			migrated++;
 			renameSync(friendsFile, friendsFile + ".backup");
-		} catch (err) {
+		} catch (err: unknown) {
 			log(`Failed to migrate friends.json: ${err}`);
 		}
 	}

@@ -296,7 +296,7 @@ export async function sendP2PLog(
 						resolve({ code: EXIT_OFFLINE, message: "Connection error" });
 					}
 				});
-			} catch (err) {
+			} catch (err: unknown) {
 				clearTimeout(timeout);
 				await cleanup();
 				if (err instanceof Error && err.message.includes("version")) {
@@ -513,7 +513,7 @@ export async function sendP2PInject(
 									`[sendP2PInject] Got unexpected message type: ${response.type}`,
 								);
 							}
-						} catch (parseErr) {
+						} catch (parseErr: unknown) {
 							log(`[sendP2PInject] Failed to parse response: ${parseErr}`);
 							// Continue buffering
 						}
@@ -532,7 +532,7 @@ export async function sendP2PInject(
 				socket.on("close", () => {
 					log(`[sendP2PInject] Socket closed, resolved=${resolved}`);
 				});
-			} catch (err) {
+			} catch (err: unknown) {
 				log(`[sendP2PInject] Error: ${err}`);
 				clearTimeout(timeout);
 				await cleanup();
@@ -564,7 +564,7 @@ export async function claimToken(
 	let token: InviteToken;
 	try {
 		token = parseInviteToken(tokenStr);
-	} catch (err) {
+	} catch (err: unknown) {
 		return { code: EXIT_INVALID, message: `Invalid token: ${err}` };
 	}
 
@@ -652,7 +652,7 @@ export async function claimToken(
 						resolve({ code: EXIT_OFFLINE, message: "Connection error" });
 					}
 				});
-			} catch (err) {
+			} catch (err: unknown) {
 				clearTimeout(timeout);
 				await cleanup();
 				resolve({ code: EXIT_OFFLINE, message: `Handshake failed: ${err}` });
@@ -769,7 +769,7 @@ export async function sendKeyRotation(
 						resolve({ code: EXIT_OFFLINE, message: "Connection error" });
 					}
 				});
-			} catch (err) {
+			} catch (err: unknown) {
 				clearTimeout(timeout);
 				await cleanup();
 				resolve({ code: EXIT_OFFLINE, message: `Handshake failed: ${err}` });
@@ -1056,7 +1056,7 @@ function handleConnection(
 					ts: Date.now(),
 				});
 				socket.write(JSON.stringify(ack) + "\n");
-			} catch (err) {
+			} catch (err: unknown) {
 				onLog(`Rejected claim: ${err}`);
 				const reject = signMessage<Omit<P2PMessage, "sig">>({
 					v: PROTOCOL_VERSION,
@@ -1260,7 +1260,7 @@ function handleConnection(
 						onLog(`Delivered to ${msg.session} (no inject handler)`);
 					}
 				}
-			} catch (err) {
+			} catch (err: unknown) {
 				onLog(`[handleConnection] ERROR: ${msg.type} failed: ${err}`);
 				const reject = signMessage<Omit<P2PMessage, "sig">>({
 					v: PROTOCOL_VERSION,
