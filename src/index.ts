@@ -555,7 +555,7 @@ const p2pTools: P2PToolDefinition[] = [
 				sessionsBeingInjected.has(context.sessionName)
 			) {
 				logger.warn(
-					`[p2p] BLOCKED: Session ${context.sessionName} tried to call p2p_inject_message while being P2P injected into`,
+					`[p2p] BLOCKED: Session ${context.sessionName} tried to call p2p.injectMessage while being P2P injected into`,
 				);
 				return toolResult(
 					`Error: BLOCKED: You are currently responding to a P2P inject. ` +
@@ -1105,7 +1105,7 @@ const plugin: WOPRPlugin = {
 						// This prevents the AI from calling p2p_inject_message while processing
 						sessionsBeingInjected.add(session);
 						ctx?.log.info(
-							`[p2p] Session ${session} marked as being-injected (blocks p2p_inject_message)`,
+							`[p2p] Session ${session} marked as being-injected (blocks p2p.injectMessage)`,
 						);
 
 						const startTime = Date.now();
