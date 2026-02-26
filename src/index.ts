@@ -491,7 +491,7 @@ const p2pTools: P2PToolDefinition[] = [
 	{
 		name: "p2p.logMessage",
 		description:
-			"Log a message to a peer's session (mailbox style). Message is stored in their session history for later viewing. Does NOT invoke the AI - just delivers the message. Use p2p_inject_message if you need an AI response.",
+			"Log a message to a peer's session (mailbox style). Message is stored in their session history for later viewing. Does NOT invoke the AI - just delivers the message. Use p2p.injectMessage if you need an AI response.",
 		inputSchema: {
 			type: "object",
 			properties: {
@@ -530,7 +530,7 @@ const p2pTools: P2PToolDefinition[] = [
 	{
 		name: "p2p.injectMessage",
 		description:
-			"Inject a message into a peer's session and get the AI's response back. This invokes the peer's AI which processes the message and generates a response. Use for questions or tasks that need a reply. Use p2p_log_message for fire-and-forget notifications. NOTE: Cannot be used while processing an incoming P2P inject - just respond with text instead.",
+			"Inject a message into a peer's session and get the AI's response back. This invokes the peer's AI which processes the message and generates a response. Use for questions or tasks that need a reply. Use p2p.logMessage for fire-and-forget notifications. NOTE: Cannot be used while processing an incoming P2P inject - just respond with text instead.",
 		inputSchema: {
 			type: "object",
 			properties: {
@@ -1185,12 +1185,12 @@ const plugin: WOPRPlugin = {
 					// They must be explicitly granted access via p2p_grant_access
 					ctx?.log.warn(
 						`[security] Discovered peer ${peerProfile.id} requires explicit grant. ` +
-							`Use p2p_grant_access to authorize.`,
+							`Use p2p.grantAccess to authorize.`,
 					);
 					return {
 						accept: false,
 						sessions: [],
-						reason: `Peer not authorized. Use p2p_grant_access to authorize peer ${peerProfile.id}.`,
+						reason: `Peer not authorized. Use p2p.grantAccess to authorize peer ${peerProfile.id}.`,
 					};
 				},
 				(msg) => ctx?.log.info(`[discovery] ${msg}`),
