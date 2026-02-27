@@ -1,3 +1,4 @@
+import type { PluginSchema } from "@wopr-network/plugin-types";
 import { z } from "zod";
 
 // ============================================
@@ -89,7 +90,7 @@ export const P2PAutoAcceptSchema = z.object({
 // PluginSchema registration
 // ============================================
 
-export const p2pPluginSchema = {
+export const p2pPluginSchema: PluginSchema = {
 	namespace: "p2p",
 	version: 1,
 	tables: {
