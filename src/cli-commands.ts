@@ -15,8 +15,6 @@ import type { WOPRPluginContext } from "@wopr-network/plugin-types";
 import {
 	acceptPendingRequest,
 	addAutoAcceptRule,
-	createFriendAccept,
-	formatFriendAccept,
 	getAutoAcceptRules,
 	getFriend,
 	getFriends,
@@ -27,11 +25,10 @@ import {
 	removeFriend,
 	revokeFriendCap,
 } from "./friends.js";
-import { getIdentity, shortKey } from "./identity.js";
-import { addPeer, grantAccess } from "./trust.js";
+import { shortKey } from "./identity.js";
 
 // Parse flags from args
-function parseFlags(args: string[]): {
+function _parseFlags(args: string[]): {
 	flags: Record<string, string | boolean>;
 	positional: string[];
 } {
@@ -103,7 +100,7 @@ export async function handleFriendCommand(
 	}
 }
 
-function showFriendHelp(ctx: WOPRPluginContext): void {
+function showFriendHelp(_ctx: WOPRPluginContext): void {
 	console.log(`
 wopr friend - Manage P2P friends
 
@@ -130,7 +127,7 @@ Examples:
 `);
 }
 
-async function handleFriendList(ctx: WOPRPluginContext): Promise<void> {
+async function handleFriendList(_ctx: WOPRPluginContext): Promise<void> {
 	const friends = getFriends();
 
 	if (friends.length === 0) {
@@ -153,8 +150,8 @@ async function handleFriendList(ctx: WOPRPluginContext): Promise<void> {
 }
 
 async function handleFriendRequest(
-	ctx: WOPRPluginContext,
-	args: string[],
+	_ctx: WOPRPluginContext,
+	_args: string[],
 ): Promise<void> {
 	// Note: Friend requests are primarily sent via Discord/Slack channels
 	// The CLI can display how to do it
@@ -173,7 +170,7 @@ for the handshake to complete.
 }
 
 async function handleFriendAccept(
-	ctx: WOPRPluginContext,
+	_ctx: WOPRPluginContext,
 	args: string[],
 ): Promise<void> {
 	if (!args[0]) {
@@ -200,7 +197,7 @@ async function handleFriendAccept(
 	console.log("the request was received. Use /accept in that channel.");
 }
 
-async function handleFriendPending(ctx: WOPRPluginContext): Promise<void> {
+async function handleFriendPending(_ctx: WOPRPluginContext): Promise<void> {
 	const incoming = getPendingIncomingRequests();
 	const outgoing = getPendingOutgoingRequests();
 
@@ -230,7 +227,7 @@ async function handleFriendPending(ctx: WOPRPluginContext): Promise<void> {
 }
 
 async function handleFriendRemove(
-	ctx: WOPRPluginContext,
+	_ctx: WOPRPluginContext,
 	args: string[],
 ): Promise<void> {
 	if (!args[0]) {
@@ -248,7 +245,7 @@ async function handleFriendRemove(
 }
 
 async function handleFriendGrant(
-	ctx: WOPRPluginContext,
+	_ctx: WOPRPluginContext,
 	args: string[],
 ): Promise<void> {
 	if (args.length < 2) {
@@ -277,7 +274,7 @@ async function handleFriendGrant(
 }
 
 async function handleFriendRevoke(
-	ctx: WOPRPluginContext,
+	_ctx: WOPRPluginContext,
 	args: string[],
 ): Promise<void> {
 	if (args.length < 2) {
@@ -298,7 +295,7 @@ async function handleFriendRevoke(
 }
 
 async function handleAutoAccept(
-	ctx: WOPRPluginContext,
+	_ctx: WOPRPluginContext,
 	args: string[],
 ): Promise<void> {
 	const action = args[0];

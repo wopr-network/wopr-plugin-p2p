@@ -4,9 +4,9 @@
  * Handles Hyperswarm connections, message passing, and protocol handshakes.
  */
 
-import { randomBytes } from "crypto";
+import { randomBytes } from "node:crypto";
+import type { Duplex } from "node:stream";
 import Hyperswarm from "hyperswarm";
-import type { Duplex } from "stream";
 import { getSwarmOptions } from "./config.js";
 import {
 	decryptMessage,
@@ -95,7 +95,7 @@ async function performHandshake(
 			nonce: randomBytes(16).toString("hex"),
 			ts: Date.now(),
 		});
-		socket.write(JSON.stringify(hello) + "\n");
+		socket.write(`${JSON.stringify(hello)}\n`);
 
 		let buffer = "";
 		const onData = (data: Buffer) => {
@@ -143,7 +143,7 @@ async function performHandshake(
 						nonce: randomBytes(16).toString("hex"),
 						ts: Date.now(),
 					});
-					socket.write(JSON.stringify(ack) + "\n");
+					socket.write(`${JSON.stringify(ack)}\n`);
 
 					clearTimeout(timeout);
 					socket.removeListener("data", onData);
@@ -263,7 +263,7 @@ export async function sendP2PLog(
 					ts: Date.now(),
 				});
 
-				const logMsgStr = JSON.stringify(msg) + "\n";
+				const logMsgStr = `${JSON.stringify(msg)}\n`;
 				socket.write(logMsgStr);
 				let buffer = "";
 				socket.on("data", async (data: Buffer) => {
@@ -444,7 +444,7 @@ export async function sendP2PInject(
 				log(
 					`[sendP2PInject] Sending inject message with requestId ${requestId.slice(0, 8)}...`,
 				);
-				const injectMsgStr = JSON.stringify(msg) + "\n";
+				const injectMsgStr = `${JSON.stringify(msg)}\n`;
 				socket.write(injectMsgStr);
 				log(`[sendP2PInject] Inject sent, waiting for response...`);
 
@@ -614,7 +614,7 @@ export async function claimToken(
 					ts: Date.now(),
 				});
 
-				socket.write(JSON.stringify(msg) + "\n");
+				socket.write(`${JSON.stringify(msg)}\n`);
 
 				let buffer = "";
 				socket.on("data", async (data: Buffer) => {
@@ -737,7 +737,7 @@ export async function sendKeyRotation(
 					sig: rotation.sig,
 				};
 
-				socket.write(JSON.stringify(msg) + "\n");
+				socket.write(`${JSON.stringify(msg)}\n`);
 
 				let buffer = "";
 				socket.on("data", async (data: Buffer) => {
@@ -926,7 +926,7 @@ function handleConnection(
 					nonce: randomBytes(16).toString("hex"),
 					ts: Date.now(),
 				});
-				socket.write(JSON.stringify(reject) + "\n");
+				socket.write(`${JSON.stringify(reject)}\n`);
 				return;
 			}
 
@@ -943,7 +943,7 @@ function handleConnection(
 				nonce: randomBytes(16).toString("hex"),
 				ts: Date.now(),
 			});
-			socket.write(JSON.stringify(ack) + "\n");
+			socket.write(`${JSON.stringify(ack)}\n`);
 			handshakeComplete = true;
 			onLog(`Handshake complete: v${negotiatedVersion}`);
 			return;
@@ -966,7 +966,7 @@ function handleConnection(
 						nonce: randomBytes(16).toString("hex"),
 						ts: Date.now(),
 					});
-					socket.write(JSON.stringify(ack) + "\n");
+					socket.write(`${JSON.stringify(ack)}\n`);
 				} else {
 					onLog(`Key rotation rejected for ${shortKey(msg.from)}`);
 					const reject = signMessage<Omit<P2PMessage, "sig">>({
@@ -977,7 +977,7 @@ function handleConnection(
 						nonce: randomBytes(16).toString("hex"),
 						ts: Date.now(),
 					});
-					socket.write(JSON.stringify(reject) + "\n");
+					socket.write(`${JSON.stringify(reject)}\n`);
 				}
 				return;
 			}
@@ -1007,7 +1007,7 @@ function handleConnection(
 					nonce: randomBytes(16).toString("hex"),
 					ts: Date.now(),
 				});
-				socket.write(JSON.stringify(reject) + "\n");
+				socket.write(`${JSON.stringify(reject)}\n`);
 				return;
 			}
 
@@ -1024,7 +1024,7 @@ function handleConnection(
 						nonce: randomBytes(16).toString("hex"),
 						ts: Date.now(),
 					});
-					socket.write(JSON.stringify(reject) + "\n");
+					socket.write(`${JSON.stringify(reject)}\n`);
 					return;
 				}
 
@@ -1037,7 +1037,7 @@ function handleConnection(
 						nonce: randomBytes(16).toString("hex"),
 						ts: Date.now(),
 					});
-					socket.write(JSON.stringify(reject) + "\n");
+					socket.write(`${JSON.stringify(reject)}\n`);
 					return;
 				}
 
@@ -1055,7 +1055,7 @@ function handleConnection(
 					nonce: randomBytes(16).toString("hex"),
 					ts: Date.now(),
 				});
-				socket.write(JSON.stringify(ack) + "\n");
+				socket.write(`${JSON.stringify(ack)}\n`);
 			} catch (err: unknown) {
 				onLog(`Rejected claim: ${err}`);
 				const reject = signMessage<Omit<P2PMessage, "sig">>({
@@ -1066,7 +1066,7 @@ function handleConnection(
 					nonce: randomBytes(16).toString("hex"),
 					ts: Date.now(),
 				});
-				socket.write(JSON.stringify(reject) + "\n");
+				socket.write(`${JSON.stringify(reject)}\n`);
 			}
 			return;
 		}
@@ -1089,7 +1089,7 @@ function handleConnection(
 					nonce: randomBytes(16).toString("hex"),
 					ts: Date.now(),
 				});
-				socket.write(JSON.stringify(reject) + "\n");
+				socket.write(`${JSON.stringify(reject)}\n`);
 				return;
 			}
 
@@ -1109,7 +1109,7 @@ function handleConnection(
 					nonce: randomBytes(16).toString("hex"),
 					ts: Date.now(),
 				});
-				socket.write(JSON.stringify(reject) + "\n");
+				socket.write(`${JSON.stringify(reject)}\n`);
 				return;
 			}
 
@@ -1124,7 +1124,7 @@ function handleConnection(
 					nonce: randomBytes(16).toString("hex"),
 					ts: Date.now(),
 				});
-				socket.write(JSON.stringify(reject) + "\n");
+				socket.write(`${JSON.stringify(reject)}\n`);
 				return;
 			}
 
@@ -1162,7 +1162,7 @@ function handleConnection(
 						nonce: randomBytes(16).toString("hex"),
 						ts: Date.now(),
 					});
-					socket.write(JSON.stringify(ack) + "\n");
+					socket.write(`${JSON.stringify(ack)}\n`);
 					onLog(`Logged to ${msg.session}`);
 				} else if (msg.type === "inject") {
 					// Invoke AI and return response
@@ -1240,7 +1240,7 @@ function handleConnection(
 						onLog(
 							`[handleConnection] Sending response message (${responseJson.length} chars), requestId: ${msg.requestId?.slice(0, 8)}...`,
 						);
-						const writeResult = socket.write(responseJson + "\n");
+						const writeResult = socket.write(`${responseJson}\n`);
 						onLog(`[handleConnection] socket.write returned: ${writeResult}`);
 						onLog(
 							`Sent AI response to ${shortKey(msg.from)} (requestId: ${msg.requestId?.slice(0, 8)}...)`,
@@ -1256,7 +1256,7 @@ function handleConnection(
 							nonce: randomBytes(16).toString("hex"),
 							ts: Date.now(),
 						});
-						socket.write(JSON.stringify(ack) + "\n");
+						socket.write(`${JSON.stringify(ack)}\n`);
 						onLog(`Delivered to ${msg.session} (no inject handler)`);
 					}
 				}
@@ -1271,7 +1271,7 @@ function handleConnection(
 					nonce: randomBytes(16).toString("hex"),
 					ts: Date.now(),
 				});
-				socket.write(JSON.stringify(reject) + "\n");
+				socket.write(`${JSON.stringify(reject)}\n`);
 			}
 		}
 	});

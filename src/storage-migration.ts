@@ -1,6 +1,6 @@
-import { existsSync, readFileSync, renameSync } from "fs";
-import { homedir } from "os";
-import { join } from "path";
+import { existsSync, readFileSync, renameSync } from "node:fs";
+import { homedir } from "node:os";
+import { join } from "node:path";
 import { shortKey } from "./identity.js";
 import type {
 	P2PAccessGrantRow,
@@ -49,7 +49,7 @@ export async function migrateJsonToSql(
 				log(`Migrated identity.json`);
 				migrated++;
 			}
-			renameSync(identityFile, identityFile + ".backup");
+			renameSync(identityFile, `${identityFile}.backup`);
 		} catch (err: unknown) {
 			log(`Failed to migrate identity.json: ${err}`);
 		}
@@ -80,7 +80,7 @@ export async function migrateJsonToSql(
 			}
 			log(`Migrated ${peers.length} peers from peers.json`);
 			migrated++;
-			renameSync(peersFile, peersFile + ".backup");
+			renameSync(peersFile, `${peersFile}.backup`);
 		} catch (err: unknown) {
 			log(`Failed to migrate peers.json: ${err}`);
 		}
@@ -115,7 +115,7 @@ export async function migrateJsonToSql(
 			}
 			log(`Migrated ${grants.length} access grants from access.json`);
 			migrated++;
-			renameSync(accessFile, accessFile + ".backup");
+			renameSync(accessFile, `${accessFile}.backup`);
 		} catch (err: unknown) {
 			log(`Failed to migrate access.json: ${err}`);
 		}
@@ -198,7 +198,7 @@ export async function migrateJsonToSql(
 				(state.autoAccept?.length || 0);
 			log(`Migrated ${total} records from friends.json`);
 			migrated++;
-			renameSync(friendsFile, friendsFile + ".backup");
+			renameSync(friendsFile, `${friendsFile}.backup`);
 		} catch (err: unknown) {
 			log(`Failed to migrate friends.json: ${err}`);
 		}

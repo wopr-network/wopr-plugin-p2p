@@ -7,16 +7,16 @@
  * Install: wopr plugin install wopr-plugin-p2p
  */
 
+import { createReadStream, existsSync } from "node:fs";
+import http from "node:http";
+import { extname, resolve, sep } from "node:path";
 import type {
 	A2AServerConfig,
 	A2AToolResult,
 	WOPRPlugin,
 	WOPRPluginContext,
 } from "@wopr-network/plugin-types";
-import { createReadStream, existsSync } from "fs";
-import http from "http";
 import type Hyperswarm from "hyperswarm";
-import { extname, join, resolve, sep } from "path";
 import winston from "winston";
 import {
 	registerAutoAcceptCommands,
@@ -40,7 +40,6 @@ import {
 import {
 	acceptPendingRequest,
 	cleanupExpiredRequests,
-	completeFriendship,
 	createFriendAccept,
 	denyPendingRequest,
 	formatFriendAccept,
@@ -96,7 +95,6 @@ import {
 	getAccessGrants,
 	getPeers,
 	grantAccess,
-	isAuthorized,
 	loadTrustData,
 	namePeer,
 	revokePeer,
@@ -163,7 +161,7 @@ function startUIServer(port: number, pluginDir: string): http.Server {
 			res.setHeader("Access-Control-Allow-Origin", "*");
 			try {
 				res.end(JSON.stringify(buildP2pStatusResponse()));
-			} catch (err: unknown) {
+			} catch (_err: unknown) {
 				res.statusCode = 500;
 				res.end(JSON.stringify({ error: "Internal error" }));
 			}
@@ -174,7 +172,7 @@ function startUIServer(port: number, pluginDir: string): http.Server {
 			res.setHeader("Access-Control-Allow-Origin", "*");
 			try {
 				res.end(JSON.stringify(buildListPeersResponse()));
-			} catch (err: unknown) {
+			} catch (_err: unknown) {
 				res.statusCode = 500;
 				res.end(JSON.stringify({ error: "Internal error" }));
 			}
@@ -185,7 +183,7 @@ function startUIServer(port: number, pluginDir: string): http.Server {
 			res.setHeader("Access-Control-Allow-Origin", "*");
 			try {
 				res.end(JSON.stringify(buildP2pStatsResponse()));
-			} catch (err: unknown) {
+			} catch (_err: unknown) {
 				res.statusCode = 500;
 				res.end(JSON.stringify({ error: "Internal error" }));
 			}
@@ -207,7 +205,7 @@ function startUIServer(port: number, pluginDir: string): http.Server {
 
 		// Resolve to absolute path — prepend "." to prevent absolute path injection
 		// (e.g. GET //etc/passwd would resolve to /etc/passwd without this guard)
-		const filePath = resolve(pluginDir, "." + cleanUrl);
+		const filePath = resolve(pluginDir, `.${cleanUrl}`);
 
 		// Enforce that the resolved path is strictly within pluginDir
 		if (!filePath.startsWith(root) && filePath !== resolve(pluginDir)) {
@@ -357,7 +355,7 @@ const p2pTools: P2PToolDefinition[] = [
 					peers: peers.map((p) => ({
 						id: p.id,
 						name: p.name,
-						publicKey: p.publicKey.slice(0, 20) + "...",
+						publicKey: `${p.publicKey.slice(0, 20)}...`,
 						sessions: p.sessions,
 						caps: p.caps,
 						added: new Date(p.added).toISOString(),
@@ -605,7 +603,7 @@ const p2pTools: P2PToolDefinition[] = [
 					identity: identity
 						? {
 								shortId: shortKey(identity.publicKey),
-								publicKey: identity.publicKey.slice(0, 30) + "...",
+								publicKey: `${identity.publicKey.slice(0, 30)}...`,
 								created: new Date(identity.created).toISOString(),
 							}
 						: null,
@@ -824,7 +822,7 @@ const p2pTools: P2PToolDefinition[] = [
 					count: peers.length,
 					peers: peers.map((p) => ({
 						id: p.id,
-						publicKey: p.publicKey.slice(0, 20) + "...",
+						publicKey: `${p.publicKey.slice(0, 20)}...`,
 						topics: p.topics,
 						content: p.content,
 						connected: p.connected || false,
@@ -880,7 +878,7 @@ const p2pTools: P2PToolDefinition[] = [
 			return toolResult(
 				JSON.stringify({
 					id: profile.id,
-					publicKey: profile.publicKey.slice(0, 20) + "...",
+					publicKey: `${profile.publicKey.slice(0, 20)}...`,
 					topics: profile.topics,
 					content: profile.content,
 					updated: new Date(profile.updated).toISOString(),
@@ -1259,10 +1257,10 @@ const plugin: WOPRPlugin = {
 				// Friend request handling (for Discord button integration)
 				acceptFriendRequest: async (
 					from: string,
-					pubkey: string,
-					encryptPub: string,
+					_pubkey: string,
+					_encryptPub: string,
 					signature: string,
-					channelId: string,
+					_channelId: string,
 				) => {
 					// Find the pending request by signature
 					const pending = getPendingIncomingBySignature(signature);
@@ -1489,7 +1487,7 @@ const plugin: WOPRPlugin = {
 		}
 
 		if (uiServer) {
-			await new Promise<void>((resolve) => uiServer!.close(() => resolve()));
+			await new Promise<void>((resolve) => uiServer?.close(() => resolve()));
 			uiServer = null;
 		}
 

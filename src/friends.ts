@@ -5,7 +5,7 @@
  * managing friendships, and session creation for friends.
  */
 
-import { createPrivateKey, createPublicKey, sign, verify } from "crypto";
+import { createPrivateKey, createPublicKey, sign, verify } from "node:crypto";
 import { getIdentity, shortKey } from "./identity.js";
 import {
 	removeFriendFromSecurity,

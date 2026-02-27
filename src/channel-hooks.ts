@@ -358,7 +358,7 @@ function registerAcceptCommand(
  */
 function registerFriendsCommand(
 	channel: ReturnType<NonNullable<WOPRPluginContext["getChannelProviders"]>>[0],
-	ctx: WOPRPluginContext,
+	_ctx: WOPRPluginContext,
 ): void {
 	channel.registerCommand({
 		name: "friends",
