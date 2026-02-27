@@ -15,7 +15,7 @@ import {
 	randomBytes,
 	sign,
 	verify,
-} from "crypto";
+} from "node:crypto";
 import type { P2PIdentityRow } from "./storage-schema.js";
 import type {
 	EphemeralKeyPair,
@@ -466,7 +466,7 @@ export function createInviteToken(
 	};
 
 	const signed = signMessage(token);
-	return "wop1://" + Buffer.from(JSON.stringify(signed)).toString("base64url");
+	return `wop1://${Buffer.from(JSON.stringify(signed)).toString("base64url")}`;
 }
 
 export function parseInviteToken(tokenStr: string): InviteToken {

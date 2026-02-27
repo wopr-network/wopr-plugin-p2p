@@ -5,7 +5,7 @@
  * Peers can join topics to find each other without prior knowledge.
  */
 
-import { createHash } from "crypto";
+import { createHash } from "node:crypto";
 import Hyperswarm from "hyperswarm";
 import { getSwarmOptions } from "./config.js";
 import { getIdentity, shortKey } from "./identity.js";
@@ -377,7 +377,7 @@ export async function requestConnection(
 
 		// Check if peer accepted (relies on connect_response handler)
 		const checkInterval = setInterval(() => {
-			const updatedPeer = discoveredPeers.get(peer!.publicKey);
+			const updatedPeer = discoveredPeers.get(peer?.publicKey);
 			if (updatedPeer?.connected) {
 				clearTimeout(timeout);
 				clearInterval(checkInterval);
@@ -468,7 +468,7 @@ export function notifyGrantUpdate(
 export async function shutdownDiscovery(): Promise<void> {
 	if (discoverySwarm) {
 		// Leave all topics
-		for (const [topic, hash] of activeTopics) {
+		for (const [_topic, hash] of activeTopics) {
 			try {
 				await discoverySwarm.leave(hash);
 			} catch {

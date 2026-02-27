@@ -2,12 +2,7 @@
  * P2P Rate Limiting and Replay Protection
  */
 
-import type {
-	RateLimitConfig,
-	RateLimitState,
-	RateLimits,
-	ReplayState,
-} from "./types.js";
+import type { RateLimitConfig, RateLimits, ReplayState } from "./types.js";
 
 const DEFAULT_LIMITS: Record<string, RateLimitConfig> = {
 	injects: { maxPerMinute: 10, maxPerHour: 100, banDurationMs: 3600000 },
@@ -95,9 +90,9 @@ export function getReplayProtector() {
 
 			// Cleanup old nonces periodically
 			if (replayState.nonces.size > MAX_NONCES) {
-				const cutoff = now - REPLAY_WINDOW_MS;
-				const newNonces = new Set<string>();
-				const newTimestamps: number[] = [];
+				const _cutoff = now - REPLAY_WINDOW_MS;
+				const _newNonces = new Set<string>();
+				const _newTimestamps: number[] = [];
 
 				// Keep only recent entries (simplified cleanup)
 				replayState.nonces.clear();
