@@ -5,8 +5,7 @@
  * auto-accept command handling with mock channel providers.
  */
 
-import { describe, it } from "node:test";
-import assert from "node:assert";
+import { describe, it, expect } from "vitest";
 
 import { registerChannelHooks, registerAutoAcceptCommands } from "../src/channel-hooks.js";
 
@@ -43,8 +42,8 @@ describe("registerChannelHooks", () => {
 
     registerChannelHooks(ctx);
 
-    assert.ok(logMessages.some(m => m.includes("No channel provider support")));
-    assert.strictEqual(registeredCommands.length, 0);
+    expect(logMessages.some(m => m.includes("No channel provider support"))).toBeTruthy();
+    expect(registeredCommands.length).toBe(0);
   });
 
   it("should log and return when channel providers list is empty", () => {
@@ -52,8 +51,8 @@ describe("registerChannelHooks", () => {
 
     registerChannelHooks(ctx);
 
-    assert.ok(logMessages.some(m => m.includes("No channel providers registered")));
-    assert.strictEqual(registeredCommands.length, 0);
+    expect(logMessages.some(m => m.includes("No channel providers registered"))).toBeTruthy();
+    expect(registeredCommands.length).toBe(0);
   });
 
   it("should register 5 commands on each channel provider", () => {
@@ -62,7 +61,7 @@ describe("registerChannelHooks", () => {
     registerChannelHooks(ctx);
 
     // friend, accept, friends, unfriend, grant
-    assert.strictEqual(registeredCommands.length, 5);
+    expect(registeredCommands.length).toBe(5);
   });
 
   it("should register 2 message parsers on each channel provider", () => {
@@ -71,7 +70,7 @@ describe("registerChannelHooks", () => {
     registerChannelHooks(ctx);
 
     // FRIEND_REQUEST parser, FRIEND_ACCEPT parser
-    assert.strictEqual(registeredParsers.length, 2);
+    expect(registeredParsers.length).toBe(2);
   });
 
   it("should register friend command with correct name", () => {
@@ -80,8 +79,8 @@ describe("registerChannelHooks", () => {
     registerChannelHooks(ctx);
 
     const friendCmd = registeredCommands.find((c: any) => c.name === "friend");
-    assert.ok(friendCmd, "friend command should be registered");
-    assert.ok(friendCmd.description.length > 0);
+    expect(friendCmd).toBeTruthy();
+    expect(friendCmd.description.length > 0).toBeTruthy();
   });
 
   it("should register accept command", () => {
@@ -89,7 +88,7 @@ describe("registerChannelHooks", () => {
 
     registerChannelHooks(ctx);
 
-    assert.ok(registeredCommands.find((c: any) => c.name === "accept"));
+    expect(registeredCommands.find((c: any) => c.name === "accept")).toBeTruthy();
   });
 
   it("should register friends command", () => {
@@ -97,7 +96,7 @@ describe("registerChannelHooks", () => {
 
     registerChannelHooks(ctx);
 
-    assert.ok(registeredCommands.find((c: any) => c.name === "friends"));
+    expect(registeredCommands.find((c: any) => c.name === "friends")).toBeTruthy();
   });
 
   it("should register unfriend command", () => {
@@ -105,7 +104,7 @@ describe("registerChannelHooks", () => {
 
     registerChannelHooks(ctx);
 
-    assert.ok(registeredCommands.find((c: any) => c.name === "unfriend"));
+    expect(registeredCommands.find((c: any) => c.name === "unfriend")).toBeTruthy();
   });
 
   it("should register grant command", () => {
@@ -113,7 +112,7 @@ describe("registerChannelHooks", () => {
 
     registerChannelHooks(ctx);
 
-    assert.ok(registeredCommands.find((c: any) => c.name === "grant"));
+    expect(registeredCommands.find((c: any) => c.name === "grant")).toBeTruthy();
   });
 
   it("should register p2p-friend-request parser", () => {
@@ -122,8 +121,8 @@ describe("registerChannelHooks", () => {
     registerChannelHooks(ctx);
 
     const parser = registeredParsers.find((p: any) => p.id === "p2p-friend-request");
-    assert.ok(parser, "friend request parser should be registered");
-    assert.ok(parser.pattern instanceof RegExp);
+    expect(parser).toBeTruthy();
+    expect(parser.pattern instanceof RegExp).toBeTruthy();
   });
 
   it("should register p2p-friend-accept parser", () => {
@@ -132,8 +131,8 @@ describe("registerChannelHooks", () => {
     registerChannelHooks(ctx);
 
     const parser = registeredParsers.find((p: any) => p.id === "p2p-friend-accept");
-    assert.ok(parser, "friend accept parser should be registered");
-    assert.ok(parser.pattern instanceof RegExp);
+    expect(parser).toBeTruthy();
+    expect(parser.pattern instanceof RegExp).toBeTruthy();
   });
 
   it("should register on multiple channel providers", () => {
@@ -157,9 +156,9 @@ describe("registerChannelHooks", () => {
 
     registerChannelHooks(ctx);
 
-    assert.strictEqual(commands1.length, 5);
-    assert.strictEqual(commands2.length, 5);
-    assert.ok(logMessages.some(m => m.includes("2 channel(s)")));
+    expect(commands1.length).toBe(5);
+    expect(commands2.length).toBe(5);
+    expect(logMessages.some(m => m.includes("2 channel(s)"))).toBeTruthy();
   });
 
   it("should match FRIEND_REQUEST pattern correctly", () => {
@@ -170,9 +169,9 @@ describe("registerChannelHooks", () => {
     const parser = registeredParsers.find((p: any) => p.id === "p2p-friend-request");
     const pattern = parser.pattern as RegExp;
 
-    assert.ok(pattern.test("FRIEND_REQUEST | to:hope | from:wopr"));
-    assert.ok(!pattern.test("FRIEND_ACCEPT | to:hope | from:wopr"));
-    assert.ok(!pattern.test("Hello world"));
+    expect(pattern.test("FRIEND_REQUEST | to:hope | from:wopr")).toBeTruthy();
+    expect(!pattern.test("FRIEND_ACCEPT | to:hope | from:wopr")).toBeTruthy();
+    expect(!pattern.test("Hello world")).toBeTruthy();
   });
 
   it("should match FRIEND_ACCEPT pattern correctly", () => {
@@ -183,9 +182,9 @@ describe("registerChannelHooks", () => {
     const parser = registeredParsers.find((p: any) => p.id === "p2p-friend-accept");
     const pattern = parser.pattern as RegExp;
 
-    assert.ok(pattern.test("FRIEND_ACCEPT | to:wopr | from:hope"));
-    assert.ok(!pattern.test("FRIEND_REQUEST | to:hope | from:wopr"));
-    assert.ok(!pattern.test("Hello world"));
+    expect(pattern.test("FRIEND_ACCEPT | to:wopr | from:hope")).toBeTruthy();
+    expect(!pattern.test("FRIEND_REQUEST | to:hope | from:wopr")).toBeTruthy();
+    expect(!pattern.test("Hello world")).toBeTruthy();
   });
 });
 
@@ -195,7 +194,7 @@ describe("registerAutoAcceptCommands", () => {
 
     registerAutoAcceptCommands(ctx);
 
-    assert.strictEqual(registeredCommands.length, 0);
+    expect(registeredCommands.length).toBe(0);
   });
 
   it("should register auto-accept command on each channel", () => {
@@ -204,8 +203,8 @@ describe("registerAutoAcceptCommands", () => {
     registerAutoAcceptCommands(ctx);
 
     const autoAcceptCmd = registeredCommands.find((c: any) => c.name === "auto-accept");
-    assert.ok(autoAcceptCmd, "auto-accept command should be registered");
-    assert.ok(autoAcceptCmd.description.includes("auto-accept"));
+    expect(autoAcceptCmd).toBeTruthy();
+    expect(autoAcceptCmd.description.includes("auto-accept")).toBeTruthy();
   });
 
   it("should register auto-accept on multiple channels", () => {
@@ -221,9 +220,9 @@ describe("registerAutoAcceptCommands", () => {
 
     registerAutoAcceptCommands(ctx);
 
-    assert.strictEqual(commands1.length, 1);
-    assert.strictEqual(commands2.length, 1);
-    assert.strictEqual(commands1[0].name, "auto-accept");
-    assert.strictEqual(commands2[0].name, "auto-accept");
+    expect(commands1.length).toBe(1);
+    expect(commands2.length).toBe(1);
+    expect(commands1[0].name).toBe("auto-accept");
+    expect(commands2[0].name).toBe("auto-accept");
   });
 });

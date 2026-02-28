@@ -5,33 +5,10 @@
  * key rotation, ephemeral keys, encryption/decryption, and invite tokens.
  */
 
-import { describe, it, beforeEach, afterEach } from "node:test";
-import assert from "node:assert";
+import { describe, it, beforeEach, afterEach, expect, vi } from "vitest";
 import { mkdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-
-import {
-  getIdentity,
-  initIdentity,
-  saveIdentity,
-  shortKey,
-  getTopic,
-  signMessage,
-  verifySignature,
-  rotateIdentity,
-  verifyKeyRotation,
-  isInGracePeriod,
-  generateEphemeralKeyPair,
-  deriveEphemeralSecret,
-  encryptWithEphemeral,
-  decryptWithEphemeral,
-  deriveSharedSecret,
-  encryptMessage,
-  decryptMessage,
-  createInviteToken,
-  parseInviteToken,
-} from "../src/identity.js";
 
 const TEST_DATA_DIR = join(tmpdir(), "wopr-p2p-test-identity-" + process.pid);
 
@@ -46,9 +23,25 @@ function useTestDataDir() {
 
 describe("Identity Management", () => {
   let cleanup: (() => void) | undefined;
+  let getIdentity: any;
+  let initIdentity: any;
+  let signMessage: any;
+  let verifySignature: any;
+  let rotateIdentity: any;
+  let verifyKeyRotation: any;
+  let isInGracePeriod: any;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     cleanup = useTestDataDir();
+    vi.resetModules();
+    const mod = await import("../src/identity.js");
+    getIdentity = mod.getIdentity;
+    initIdentity = mod.initIdentity;
+    signMessage = mod.signMessage;
+    verifySignature = mod.verifySignature;
+    rotateIdentity = mod.rotateIdentity;
+    verifyKeyRotation = mod.verifyKeyRotation;
+    isInGracePeriod = mod.isInGracePeriod;
   });
 
   afterEach(() => {
@@ -60,18 +53,18 @@ describe("Identity Management", () => {
 
   describe("getIdentity", () => {
     it("should return null when no identity exists", () => {
-      assert.strictEqual(getIdentity(), null);
+      expect(getIdentity()).toBe(null);
     });
 
     it("should return saved identity", () => {
       const identity = initIdentity();
       const loaded = getIdentity();
 
-      assert.ok(loaded);
-      assert.strictEqual(loaded.publicKey, identity.publicKey);
-      assert.strictEqual(loaded.privateKey, identity.privateKey);
-      assert.strictEqual(loaded.encryptPub, identity.encryptPub);
-      assert.strictEqual(loaded.encryptPriv, identity.encryptPriv);
+      expect(loaded).toBeTruthy();
+      expect(loaded!.publicKey).toBe(identity.publicKey);
+      expect(loaded!.privateKey).toBe(identity.privateKey);
+      expect(loaded!.encryptPub).toBe(identity.encryptPub);
+      expect(loaded!.encryptPriv).toBe(identity.encryptPriv);
     });
   });
 
@@ -79,24 +72,24 @@ describe("Identity Management", () => {
     it("should create a new identity with all key fields", () => {
       const identity = initIdentity();
 
-      assert.ok(identity.publicKey, "should have publicKey");
-      assert.ok(identity.privateKey, "should have privateKey");
-      assert.ok(identity.encryptPub, "should have encryptPub");
-      assert.ok(identity.encryptPriv, "should have encryptPriv");
-      assert.ok(identity.created > 0, "should have created timestamp");
+      expect(identity.publicKey).toBeTruthy();
+      expect(identity.privateKey).toBeTruthy();
+      expect(identity.encryptPub).toBeTruthy();
+      expect(identity.encryptPriv).toBeTruthy();
+      expect(identity.created > 0).toBeTruthy();
     });
 
     it("should throw if identity already exists without force", () => {
       initIdentity();
-      assert.throws(() => initIdentity(), /already exists/);
+      expect(() => initIdentity()).toThrow(/already exists/);
     });
 
     it("should regenerate identity with force=true", () => {
       const first = initIdentity();
       const second = initIdentity(true);
 
-      assert.notStrictEqual(first.publicKey, second.publicKey);
-      assert.notStrictEqual(first.privateKey, second.privateKey);
+      expect(first.publicKey).not.toBe(second.publicKey);
+      expect(first.privateKey).not.toBe(second.privateKey);
     });
 
     it("should generate valid base64 keys", () => {
@@ -105,36 +98,8 @@ describe("Identity Management", () => {
       // All keys should be valid base64
       for (const field of ["publicKey", "privateKey", "encryptPub", "encryptPriv"] as const) {
         const buf = Buffer.from(identity[field], "base64");
-        assert.ok(buf.length > 0, `${field} should decode from base64`);
+        expect(buf.length > 0).toBeTruthy();
       }
-    });
-  });
-
-  describe("shortKey", () => {
-    it("should return 8-character hex string", () => {
-      const result = shortKey("somePublicKey");
-      assert.strictEqual(result.length, 8);
-      assert.ok(/^[0-9a-f]+$/.test(result), "should be hex");
-    });
-
-    it("should be deterministic", () => {
-      assert.strictEqual(shortKey("key1"), shortKey("key1"));
-    });
-
-    it("should differ for different keys", () => {
-      assert.notStrictEqual(shortKey("key1"), shortKey("key2"));
-    });
-  });
-
-  describe("getTopic", () => {
-    it("should return a 32-byte Buffer", () => {
-      const topic = getTopic("someKey");
-      assert.ok(Buffer.isBuffer(topic));
-      assert.strictEqual(topic.length, 32);
-    });
-
-    it("should be deterministic", () => {
-      assert.ok(getTopic("key1").equals(getTopic("key1")));
     });
   });
 
@@ -144,11 +109,11 @@ describe("Identity Management", () => {
       const msg = { hello: "world", ts: Date.now() };
       const signed = signMessage(msg);
 
-      assert.ok(signed.sig, "should have signature");
-      assert.strictEqual(signed.hello, "world");
+      expect(signed.sig).toBeTruthy();
+      expect(signed.hello).toBe("world");
 
       const valid = verifySignature(signed, identity.publicKey);
-      assert.strictEqual(valid, true);
+      expect(valid).toBe(true);
     });
 
     it("should reject tampered message", () => {
@@ -157,7 +122,7 @@ describe("Identity Management", () => {
 
       // Tamper with the payload
       const tampered = { ...signed, data: "tampered" };
-      assert.strictEqual(verifySignature(tampered, identity.publicKey), false);
+      expect(verifySignature(tampered, identity.publicKey)).toBe(false);
     });
 
     it("should reject wrong signer key", () => {
@@ -168,19 +133,19 @@ describe("Identity Management", () => {
       const other = initIdentity(true);
       // Verify against the original key (which is no longer stored)
       // The signed message was created with old key, so verifying with new key should fail
-      assert.strictEqual(verifySignature(signed, other.publicKey), false);
+      expect(verifySignature(signed, other.publicKey)).toBe(false);
     });
 
     it("should throw when no identity for signing", () => {
-      assert.throws(() => signMessage({ data: "test" }), /No identity/);
+      expect(() => signMessage({ data: "test" })).toThrow(/No identity/);
     });
 
     it("should return false for invalid key in verifySignature", () => {
-      assert.strictEqual(verifySignature({ sig: "bad", data: "test" }, "not-a-key"), false);
+      expect(verifySignature({ sig: "bad", data: "test" }, "not-a-key")).toBe(false);
     });
 
     it("should return false when no signer key provided", () => {
-      assert.strictEqual(verifySignature({ sig: "something" }), false);
+      expect(verifySignature({ sig: "something" })).toBe(false);
     });
   });
 
@@ -190,30 +155,30 @@ describe("Identity Management", () => {
       const { identity, rotation } = rotateIdentity();
 
       // New keys should differ from original
-      assert.notStrictEqual(identity.publicKey, original.publicKey);
-      assert.notStrictEqual(identity.encryptPub, original.encryptPub);
+      expect(identity.publicKey).not.toBe(original.publicKey);
+      expect(identity.encryptPub).not.toBe(original.encryptPub);
 
       // Rotation metadata
-      assert.strictEqual(rotation.type, "key-rotation");
-      assert.strictEqual(rotation.oldSignPub, original.publicKey);
-      assert.strictEqual(rotation.newSignPub, identity.publicKey);
-      assert.strictEqual(rotation.newEncryptPub, identity.encryptPub);
-      assert.strictEqual(rotation.reason, "scheduled");
-      assert.ok(rotation.sig, "rotation should be signed");
+      expect(rotation.type).toBe("key-rotation");
+      expect(rotation.oldSignPub).toBe(original.publicKey);
+      expect(rotation.newSignPub).toBe(identity.publicKey);
+      expect(rotation.newEncryptPub).toBe(identity.encryptPub);
+      expect(rotation.reason).toBe("scheduled");
+      expect(rotation.sig).toBeTruthy();
 
       // Identity should track rotation
-      assert.strictEqual(identity.rotatedFrom, original.publicKey);
-      assert.ok(identity.rotatedAt);
+      expect(identity.rotatedFrom).toBe(original.publicKey);
+      expect(identity.rotatedAt).toBeTruthy();
     });
 
     it("should throw when no identity to rotate", () => {
-      assert.throws(() => rotateIdentity(), /No identity to rotate/);
+      expect(() => rotateIdentity()).toThrow(/No identity to rotate/);
     });
 
     it("should accept reason parameter", () => {
       initIdentity();
       const { rotation } = rotateIdentity("compromise");
-      assert.strictEqual(rotation.reason, "compromise");
+      expect(rotation.reason).toBe("compromise");
     });
   });
 
@@ -221,7 +186,7 @@ describe("Identity Management", () => {
     it("should verify a valid rotation message", () => {
       initIdentity();
       const { rotation } = rotateIdentity();
-      assert.strictEqual(verifyKeyRotation(rotation), true);
+      expect(verifyKeyRotation(rotation)).toBe(true);
     });
 
     it("should reject a tampered rotation message", () => {
@@ -230,7 +195,7 @@ describe("Identity Management", () => {
 
       // Tamper with the new key
       const tampered = { ...rotation, newSignPub: "tampered-key" };
-      assert.strictEqual(verifyKeyRotation(tampered), false);
+      expect(verifyKeyRotation(tampered)).toBe(false);
     });
 
     it("should reject rotation with invalid signature", () => {
@@ -238,7 +203,7 @@ describe("Identity Management", () => {
       const { rotation } = rotateIdentity();
 
       const tampered = { ...rotation, sig: "invalidsig" };
-      assert.strictEqual(verifyKeyRotation(tampered), false);
+      expect(verifyKeyRotation(tampered)).toBe(false);
     });
   });
 
@@ -246,7 +211,7 @@ describe("Identity Management", () => {
     it("should return true during grace period", () => {
       initIdentity();
       const { rotation } = rotateIdentity();
-      assert.strictEqual(isInGracePeriod(rotation), true);
+      expect(isInGracePeriod(rotation)).toBe(true);
     });
 
     it("should return false after grace period expires", () => {
@@ -261,20 +226,74 @@ describe("Identity Management", () => {
         gracePeriodMs: 1000, // Already expired
         sig: "sig",
       };
-      assert.strictEqual(isInGracePeriod(rotation), false);
+      expect(isInGracePeriod(rotation)).toBe(false);
+    });
+  });
+});
+
+describe("shortKey / getTopic", () => {
+  let shortKey: any;
+  let getTopic: any;
+
+  beforeEach(async () => {
+    vi.resetModules();
+    const mod = await import("../src/identity.js");
+    shortKey = mod.shortKey;
+    getTopic = mod.getTopic;
+  });
+
+  describe("shortKey", () => {
+    it("should return 8-character hex string", () => {
+      const result = shortKey("somePublicKey");
+      expect(result.length).toBe(8);
+      expect(/^[0-9a-f]+$/.test(result)).toBeTruthy();
+    });
+
+    it("should be deterministic", () => {
+      expect(shortKey("key1")).toBe(shortKey("key1"));
+    });
+
+    it("should differ for different keys", () => {
+      expect(shortKey("key1")).not.toBe(shortKey("key2"));
+    });
+  });
+
+  describe("getTopic", () => {
+    it("should return a 32-byte Buffer", () => {
+      const topic = getTopic("someKey");
+      expect(Buffer.isBuffer(topic)).toBeTruthy();
+      expect(topic.length).toBe(32);
+    });
+
+    it("should be deterministic", () => {
+      expect(getTopic("key1").equals(getTopic("key1"))).toBeTruthy();
     });
   });
 });
 
 describe("Ephemeral Keys", () => {
+  let generateEphemeralKeyPair: any;
+  let deriveEphemeralSecret: any;
+  let encryptWithEphemeral: any;
+  let decryptWithEphemeral: any;
+
+  beforeEach(async () => {
+    vi.resetModules();
+    const mod = await import("../src/identity.js");
+    generateEphemeralKeyPair = mod.generateEphemeralKeyPair;
+    deriveEphemeralSecret = mod.deriveEphemeralSecret;
+    encryptWithEphemeral = mod.encryptWithEphemeral;
+    decryptWithEphemeral = mod.decryptWithEphemeral;
+  });
+
   describe("generateEphemeralKeyPair", () => {
     it("should generate a keypair with correct fields", () => {
       const pair = generateEphemeralKeyPair();
 
-      assert.ok(pair.publicKey, "should have publicKey");
-      assert.ok(pair.privateKey, "should have privateKey");
-      assert.ok(pair.created > 0, "should have created timestamp");
-      assert.ok(pair.expiresAt > pair.created, "expiresAt should be after created");
+      expect(pair.publicKey).toBeTruthy();
+      expect(pair.privateKey).toBeTruthy();
+      expect(pair.created > 0).toBeTruthy();
+      expect(pair.expiresAt > pair.created).toBeTruthy();
     });
 
     it("should respect custom TTL", () => {
@@ -283,14 +302,14 @@ describe("Ephemeral Keys", () => {
       const expectedExpiry = pair.created + ttl;
 
       // Allow 100ms tolerance
-      assert.ok(Math.abs(pair.expiresAt - expectedExpiry) < 100);
+      expect(Math.abs(pair.expiresAt - expectedExpiry) < 100).toBeTruthy();
     });
 
     it("should generate unique keypairs", () => {
       const a = generateEphemeralKeyPair();
       const b = generateEphemeralKeyPair();
-      assert.notStrictEqual(a.publicKey, b.publicKey);
-      assert.notStrictEqual(a.privateKey, b.privateKey);
+      expect(a.publicKey).not.toBe(b.publicKey);
+      expect(a.privateKey).not.toBe(b.privateKey);
     });
   });
 
@@ -302,7 +321,7 @@ describe("Ephemeral Keys", () => {
       const secretA = deriveEphemeralSecret(alice.privateKey, bob.publicKey);
       const secretB = deriveEphemeralSecret(bob.privateKey, alice.publicKey);
 
-      assert.ok(secretA.equals(secretB), "shared secrets should match");
+      expect(secretA.equals(secretB)).toBeTruthy();
     });
 
     it("should return a 32-byte key", () => {
@@ -310,7 +329,7 @@ describe("Ephemeral Keys", () => {
       const bob = generateEphemeralKeyPair();
 
       const secret = deriveEphemeralSecret(alice.privateKey, bob.publicKey);
-      assert.strictEqual(secret.length, 32);
+      expect(secret.length).toBe(32);
     });
   });
 
@@ -323,7 +342,7 @@ describe("Ephemeral Keys", () => {
       const ciphertext = encryptWithEphemeral(plaintext, alice.privateKey, bob.publicKey);
       const decrypted = decryptWithEphemeral(ciphertext, bob.privateKey, alice.publicKey);
 
-      assert.strictEqual(decrypted, plaintext);
+      expect(decrypted).toBe(plaintext);
     });
 
     it("should produce different ciphertexts for same plaintext (random IV)", () => {
@@ -333,7 +352,7 @@ describe("Ephemeral Keys", () => {
       const ct1 = encryptWithEphemeral("same", alice.privateKey, bob.publicKey);
       const ct2 = encryptWithEphemeral("same", alice.privateKey, bob.publicKey);
 
-      assert.notStrictEqual(ct1, ct2);
+      expect(ct1).not.toBe(ct2);
     });
 
     it("should fail to decrypt with wrong keys", () => {
@@ -343,9 +362,9 @@ describe("Ephemeral Keys", () => {
 
       const ciphertext = encryptWithEphemeral("secret", alice.privateKey, bob.publicKey);
 
-      assert.throws(() => {
+      expect(() => {
         decryptWithEphemeral(ciphertext, eve.privateKey, alice.publicKey);
-      });
+      }).toThrow();
     });
 
     it("should handle empty string", () => {
@@ -355,7 +374,7 @@ describe("Ephemeral Keys", () => {
       const ciphertext = encryptWithEphemeral("", alice.privateKey, bob.publicKey);
       const decrypted = decryptWithEphemeral(ciphertext, bob.privateKey, alice.publicKey);
 
-      assert.strictEqual(decrypted, "");
+      expect(decrypted).toBe("");
     });
 
     it("should handle unicode content", () => {
@@ -366,16 +385,28 @@ describe("Ephemeral Keys", () => {
       const ciphertext = encryptWithEphemeral(plaintext, alice.privateKey, bob.publicKey);
       const decrypted = decryptWithEphemeral(ciphertext, bob.privateKey, alice.publicKey);
 
-      assert.strictEqual(decrypted, plaintext);
+      expect(decrypted).toBe(plaintext);
     });
   });
 });
 
 describe("Static Key Encryption", () => {
   let cleanup: (() => void) | undefined;
+  let generateEphemeralKeyPair: any;
+  let deriveSharedSecret: any;
+  let initIdentity: any;
+  let encryptMessage: any;
+  let decryptMessage: any;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     cleanup = useTestDataDir();
+    vi.resetModules();
+    const mod = await import("../src/identity.js");
+    generateEphemeralKeyPair = mod.generateEphemeralKeyPair;
+    deriveSharedSecret = mod.deriveSharedSecret;
+    initIdentity = mod.initIdentity;
+    encryptMessage = mod.encryptMessage;
+    decryptMessage = mod.decryptMessage;
   });
 
   afterEach(() => {
@@ -388,7 +419,7 @@ describe("Static Key Encryption", () => {
   describe("deriveSharedSecret", () => {
     it("should throw when no identity exists", () => {
       const pair = generateEphemeralKeyPair();
-      assert.throws(() => deriveSharedSecret(pair.publicKey), /No identity/);
+      expect(() => deriveSharedSecret(pair.publicKey)).toThrow(/No identity/);
     });
   });
 
@@ -409,16 +440,26 @@ describe("Static Key Encryption", () => {
       const ciphertext = encryptMessage(plaintext, encryptPubB);
       const decrypted = decryptMessage(ciphertext, encryptPubB);
 
-      assert.strictEqual(decrypted, plaintext);
+      expect(decrypted).toBe(plaintext);
     });
   });
 });
 
 describe("Invite Tokens", () => {
   let cleanup: (() => void) | undefined;
+  let initIdentity: any;
+  let signMessage: any;
+  let createInviteToken: any;
+  let parseInviteToken: any;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     cleanup = useTestDataDir();
+    vi.resetModules();
+    const mod = await import("../src/identity.js");
+    initIdentity = mod.initIdentity;
+    signMessage = mod.signMessage;
+    createInviteToken = mod.createInviteToken;
+    parseInviteToken = mod.parseInviteToken;
   });
 
   afterEach(() => {
@@ -433,11 +474,11 @@ describe("Invite Tokens", () => {
       initIdentity();
       const token = createInviteToken("target-pubkey", ["session1"]);
 
-      assert.ok(token.startsWith("wop1://"), "Token should start with wop1://");
+      expect(token.startsWith("wop1://")).toBeTruthy();
     });
 
     it("should throw when no identity exists", () => {
-      assert.throws(() => createInviteToken("target", ["s1"]), /No identity/);
+      expect(() => createInviteToken("target", ["s1"])).toThrow(/No identity/);
     });
   });
 
@@ -448,17 +489,17 @@ describe("Invite Tokens", () => {
 
       const parsed = parseInviteToken(token);
 
-      assert.strictEqual(parsed.v, 1);
-      assert.strictEqual(parsed.iss, identity.publicKey);
-      assert.strictEqual(parsed.sub, "target-pubkey");
-      assert.deepStrictEqual(parsed.ses, ["session1", "session2"]);
-      assert.deepStrictEqual(parsed.cap, ["inject"]);
-      assert.ok(parsed.nonce, "should have nonce");
-      assert.ok(parsed.sig, "should have signature");
+      expect(parsed.v).toBe(1);
+      expect(parsed.iss).toBe(identity.publicKey);
+      expect(parsed.sub).toBe("target-pubkey");
+      expect(parsed.ses).toEqual(["session1", "session2"]);
+      expect(parsed.cap).toEqual(["inject"]);
+      expect(parsed.nonce).toBeTruthy();
+      expect(parsed.sig).toBeTruthy();
     });
 
     it("should reject invalid prefix", () => {
-      assert.throws(() => parseInviteToken("bad://token"), /Invalid token format/);
+      expect(() => parseInviteToken("bad://token")).toThrow(/Invalid token format/);
     });
 
     it("should reject expired tokens", () => {
@@ -476,7 +517,7 @@ describe("Invite Tokens", () => {
       });
       const expiredToken = "wop1://" + Buffer.from(JSON.stringify(signed)).toString("base64url");
 
-      assert.throws(() => parseInviteToken(expiredToken), /expired/);
+      expect(() => parseInviteToken(expiredToken)).toThrow(/expired/);
     });
 
     it("should reject tokens with invalid signatures", () => {
@@ -489,7 +530,7 @@ describe("Invite Tokens", () => {
       data.sub = "tampered-target";
       const tampered = "wop1://" + Buffer.from(JSON.stringify(data)).toString("base64url");
 
-      assert.throws(() => parseInviteToken(tampered), /Invalid signature/);
+      expect(() => parseInviteToken(tampered)).toThrow(/Invalid signature/);
     });
   });
 });

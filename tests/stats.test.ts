@@ -2,8 +2,7 @@
  * Unit tests for the P2P Stats module
  */
 
-import { describe, it, beforeEach } from "node:test";
-import assert from "node:assert";
+import { describe, it, beforeEach, expect } from "vitest";
 
 import { getP2PStats, incrementStat, resetStats } from "../src/stats.js";
 
@@ -14,15 +13,15 @@ describe("P2P Stats", () => {
 
 	it("should return zeros after reset", () => {
 		const stats = getP2PStats();
-		assert.strictEqual(stats.messagesRelayed, 0);
-		assert.strictEqual(stats.connectionsTotal, 0);
-		assert.ok(stats.startedAt > 0);
+		expect(stats.messagesRelayed).toBe(0);
+		expect(stats.connectionsTotal).toBe(0);
+		expect(stats.startedAt > 0).toBeTruthy();
 	});
 
 	it("should increment a stat by 1 by default", () => {
 		incrementStat("messagesRelayed");
 		const stats = getP2PStats();
-		assert.strictEqual(stats.messagesRelayed, 1);
+		expect(stats.messagesRelayed).toBe(1);
 	});
 
 	it("should increment multiple stats independently", () => {
@@ -30,8 +29,8 @@ describe("P2P Stats", () => {
 		incrementStat("connectionsTotal", 3);
 
 		const stats = getP2PStats();
-		assert.strictEqual(stats.messagesRelayed, 5);
-		assert.strictEqual(stats.connectionsTotal, 3);
+		expect(stats.messagesRelayed).toBe(5);
+		expect(stats.connectionsTotal).toBe(3);
 	});
 
 	it("should reset all stats to zero", () => {
@@ -41,8 +40,8 @@ describe("P2P Stats", () => {
 		resetStats();
 
 		const stats = getP2PStats();
-		assert.strictEqual(stats.messagesRelayed, 0);
-		assert.strictEqual(stats.connectionsTotal, 0);
+		expect(stats.messagesRelayed).toBe(0);
+		expect(stats.connectionsTotal).toBe(0);
 	});
 
 	it("should return a copy (not a reference)", () => {
@@ -50,8 +49,8 @@ describe("P2P Stats", () => {
 		incrementStat("messagesRelayed");
 		const stats2 = getP2PStats();
 
-		assert.strictEqual(stats1.messagesRelayed, 0);
-		assert.strictEqual(stats2.messagesRelayed, 1);
+		expect(stats1.messagesRelayed).toBe(0);
+		expect(stats2.messagesRelayed).toBe(1);
 	});
 
 	it("should update startedAt on reset", () => {
@@ -63,6 +62,6 @@ describe("P2P Stats", () => {
 		}
 		resetStats();
 		const after = getP2PStats().startedAt;
-		assert.ok(after >= before);
+		expect(after >= before).toBeTruthy();
 	});
 });

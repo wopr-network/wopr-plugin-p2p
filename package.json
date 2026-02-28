@@ -11,7 +11,8 @@
     "@biomejs/biome": "^2.4.4",
     "@types/node": "^25.3.2",
     "tsx": "^4.7.0",
-    "typescript": "^5.0.0"
+    "typescript": "^5.0.0",
+    "vitest": "^4.0.18"
   },
   "engines": {
     "node": ">=18.0.0"
@@ -43,7 +44,7 @@
     "lint": "biome check src/",
     "lint:fix": "biome check --fix src/",
     "prepublishOnly": "npm run build",
-    "test": "node --import tsx --test tests/*.test.ts"
+    "test": "vitest run"
   },
   "type": "module",
   "version": "1.0.0",

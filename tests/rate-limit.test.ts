@@ -5,8 +5,7 @@
  * and replay protection (nonce deduplication, timestamp window).
  */
 
-import { describe, it, beforeEach } from "node:test";
-import assert from "node:assert";
+import { describe, it, beforeEach, expect } from "vitest";
 
 import { getRateLimiter, getReplayProtector } from "../src/rate-limit.js";
 
@@ -21,13 +20,13 @@ describe("Rate Limiter", () => {
 
   describe("check", () => {
     it("should allow first request", () => {
-      assert.strictEqual(limiter.check("test-peer", "injects"), true);
+      expect(limiter.check("test-peer", "injects")).toBe(true);
     });
 
     it("should allow requests under the per-minute limit", () => {
       // Default injects limit: 10 per minute
       for (let i = 0; i < 9; i++) {
-        assert.strictEqual(limiter.check("test-peer", "injects"), true, `Request ${i + 1} should pass`);
+        expect(limiter.check("test-peer", "injects")).toBe(true);
       }
     });
 
@@ -38,7 +37,7 @@ describe("Rate Limiter", () => {
       }
 
       // 11th request should be denied (triggers ban at 10)
-      assert.strictEqual(limiter.check("test-peer", "injects"), false);
+      expect(limiter.check("test-peer", "injects")).toBe(false);
     });
 
     it("should deny requests while banned", () => {
@@ -48,8 +47,8 @@ describe("Rate Limiter", () => {
       }
 
       // All subsequent requests should be denied
-      assert.strictEqual(limiter.check("test-peer", "injects"), false);
-      assert.strictEqual(limiter.check("test-peer", "injects"), false);
+      expect(limiter.check("test-peer", "injects")).toBe(false);
+      expect(limiter.check("test-peer", "injects")).toBe(false);
     });
 
     it("should track different actions independently", () => {
@@ -59,8 +58,8 @@ describe("Rate Limiter", () => {
       }
 
       // injects is now banned, but claims should still work
-      assert.strictEqual(limiter.check("test-peer", "injects"), false);
-      assert.strictEqual(limiter.check("test-peer", "claims"), true);
+      expect(limiter.check("test-peer", "injects")).toBe(false);
+      expect(limiter.check("test-peer", "claims")).toBe(true);
     });
 
     it("should track different peers independently", () => {
@@ -72,8 +71,8 @@ describe("Rate Limiter", () => {
       }
 
       // peer-a is banned, peer-b should still work
-      assert.strictEqual(limiter.check("test-peer", "injects"), false);
-      assert.strictEqual(limiter.check("peer-b", "injects"), true);
+      expect(limiter.check("test-peer", "injects")).toBe(false);
+      expect(limiter.check("peer-b", "injects")).toBe(true);
 
       limiter.reset("peer-b");
     });
@@ -84,7 +83,7 @@ describe("Rate Limiter", () => {
         limiter.check("test-peer", "invalidMessages");
       }
 
-      assert.strictEqual(limiter.check("test-peer", "invalidMessages"), false);
+      expect(limiter.check("test-peer", "invalidMessages")).toBe(false);
     });
 
     it("should use stricter limits for claims", () => {
@@ -93,15 +92,15 @@ describe("Rate Limiter", () => {
         limiter.check("test-peer", "claims");
       }
 
-      assert.strictEqual(limiter.check("test-peer", "claims"), false);
+      expect(limiter.check("test-peer", "claims")).toBe(false);
     });
 
     it("should fall back to injects config for unknown action", () => {
       // Unknown action should use injects defaults (10 per minute)
       for (let i = 0; i < 10; i++) {
-        assert.strictEqual(limiter.check("test-peer", "unknown-action"), true, `Request ${i + 1} should pass`);
+        expect(limiter.check("test-peer", "unknown-action")).toBe(true);
       }
-      assert.strictEqual(limiter.check("test-peer", "unknown-action"), false);
+      expect(limiter.check("test-peer", "unknown-action")).toBe(false);
     });
   });
 
@@ -111,13 +110,13 @@ describe("Rate Limiter", () => {
       for (let i = 0; i < 10; i++) {
         limiter.check("test-peer", "injects");
       }
-      assert.strictEqual(limiter.check("test-peer", "injects"), false);
+      expect(limiter.check("test-peer", "injects")).toBe(false);
 
       // Reset
       limiter.reset("test-peer");
 
       // Should be allowed again
-      assert.strictEqual(limiter.check("test-peer", "injects"), true);
+      expect(limiter.check("test-peer", "injects")).toBe(true);
     });
 
     it("should only reset the specified peer", () => {
@@ -133,8 +132,8 @@ describe("Rate Limiter", () => {
       // Reset only peer-a
       limiter.reset("peer-a");
 
-      assert.strictEqual(limiter.check("peer-a", "injects"), true);
-      assert.strictEqual(limiter.check("peer-b", "injects"), false);
+      expect(limiter.check("peer-a", "injects")).toBe(true);
+      expect(limiter.check("peer-b", "injects")).toBe(false);
 
       limiter.reset("peer-b");
     });
@@ -151,34 +150,34 @@ describe("Replay Protector", () => {
 
   describe("check", () => {
     it("should accept a valid nonce with current timestamp", () => {
-      assert.strictEqual(protector.check("nonce-1", Date.now()), true);
+      expect(protector.check("nonce-1", Date.now())).toBe(true);
     });
 
     it("should reject a duplicate nonce", () => {
-      assert.strictEqual(protector.check("same-nonce", Date.now()), true);
-      assert.strictEqual(protector.check("same-nonce", Date.now()), false);
+      expect(protector.check("same-nonce", Date.now())).toBe(true);
+      expect(protector.check("same-nonce", Date.now())).toBe(false);
     });
 
     it("should accept different nonces", () => {
-      assert.strictEqual(protector.check("nonce-a", Date.now()), true);
-      assert.strictEqual(protector.check("nonce-b", Date.now()), true);
-      assert.strictEqual(protector.check("nonce-c", Date.now()), true);
+      expect(protector.check("nonce-a", Date.now())).toBe(true);
+      expect(protector.check("nonce-b", Date.now())).toBe(true);
+      expect(protector.check("nonce-c", Date.now())).toBe(true);
     });
 
     it("should reject timestamps too far in the past (>5 minutes)", () => {
       const fiveMinutesAgo = Date.now() - 5 * 60 * 1000 - 1;
-      assert.strictEqual(protector.check("old-nonce", fiveMinutesAgo), false);
+      expect(protector.check("old-nonce", fiveMinutesAgo)).toBe(false);
     });
 
     it("should reject timestamps too far in the future (>5 minutes)", () => {
       const fiveMinutesFromNow = Date.now() + 5 * 60 * 1000 + 1;
-      assert.strictEqual(protector.check("future-nonce", fiveMinutesFromNow), false);
+      expect(protector.check("future-nonce", fiveMinutesFromNow)).toBe(false);
     });
 
     it("should accept timestamps at the edge of the window", () => {
       // Just barely within 5 minutes
       const nearEdge = Date.now() - 4 * 60 * 1000;
-      assert.strictEqual(protector.check("edge-nonce", nearEdge), true);
+      expect(protector.check("edge-nonce", nearEdge)).toBe(true);
     });
   });
 
@@ -190,8 +189,8 @@ describe("Replay Protector", () => {
       protector.reset();
 
       // Previously seen nonces should now be accepted
-      assert.strictEqual(protector.check("nonce-1", Date.now()), true);
-      assert.strictEqual(protector.check("nonce-2", Date.now()), true);
+      expect(protector.check("nonce-1", Date.now())).toBe(true);
+      expect(protector.check("nonce-2", Date.now())).toBe(true);
     });
   });
 });

@@ -5,8 +5,7 @@
  * and grant notifications. Mocks Hyperswarm for isolation.
  */
 
-import { describe, it } from "node:test";
-import assert from "node:assert";
+import { describe, it, expect } from "vitest";
 
 // We need to mock identity and trust before importing discovery.
 // Since node:test doesn't have vi.mock, we test the pure state functions
@@ -30,20 +29,20 @@ describe("Discovery Module - State Management", () => {
   describe("getTopics", () => {
     it("should return empty array when no topics joined", () => {
       const topics = getTopics();
-      assert.deepStrictEqual(topics, []);
+      expect(topics).toEqual([]);
     });
   });
 
   describe("getDiscoveredPeers", () => {
     it("should return empty array when no peers discovered", () => {
       const peers = getDiscoveredPeers();
-      assert.deepStrictEqual(peers, []);
+      expect(peers).toEqual([]);
     });
 
     it("should accept an optional topic filter parameter", () => {
       const peers = getDiscoveredPeers("nonexistent-topic");
-      assert.ok(Array.isArray(peers));
-      assert.strictEqual(peers.length, 0);
+      expect(Array.isArray(peers)).toBeTruthy();
+      expect(peers.length).toBe(0);
     });
   });
 
@@ -52,21 +51,21 @@ describe("Discovery Module - State Management", () => {
       const profile = getProfile();
       // Will be null if initDiscovery hasn't been called (or after shutdown)
       // This is the expected uninitialized state
-      assert.strictEqual(profile, null);
+      expect(profile).toBe(null);
     });
   });
 
   describe("updateProfile", () => {
     it("should return null when no profile exists (not initialized)", () => {
       const result = updateProfile({ key: "value" });
-      assert.strictEqual(result, null);
+      expect(result).toBe(null);
     });
   });
 
   describe("notifyGrantUpdate", () => {
     it("should return false when no socket exists for the peer", () => {
       const result = notifyGrantUpdate("nonexistent-peer-key", ["session1"]);
-      assert.strictEqual(result, false);
+      expect(result).toBe(false);
     });
   });
 
@@ -84,9 +83,9 @@ describe("Discovery Module - State Management", () => {
     it("should clear all state after shutdown", async () => {
       await shutdownDiscovery();
 
-      assert.strictEqual(getProfile(), null);
-      assert.deepStrictEqual(getTopics(), []);
-      assert.deepStrictEqual(getDiscoveredPeers(), []);
+      expect(getProfile()).toBe(null);
+      expect(getTopics()).toEqual([]);
+      expect(getDiscoveredPeers()).toEqual([]);
     });
   });
 });
@@ -98,10 +97,7 @@ describe("Discovery Module - Topic Operations (without init)", () => {
   it("joinTopic should throw when not initialized", async () => {
     const { joinTopic } = await import("../src/discovery.js");
 
-    await assert.rejects(
-      () => joinTopic("test-topic"),
-      { message: "Discovery not initialized" }
-    );
+    await expect(() => joinTopic("test-topic")).rejects.toThrow("Discovery not initialized");
   });
 
   it("leaveTopic should not throw when not initialized", async () => {
@@ -118,8 +114,8 @@ describe("Discovery Module - requestConnection (without init)", () => {
     const { EXIT_PEER_OFFLINE } = await import("../src/types.js");
 
     const result = await requestConnection("some-peer-id");
-    assert.strictEqual(result.accept, false);
-    assert.strictEqual(result.code, EXIT_PEER_OFFLINE);
-    assert.ok(result.message?.includes("not initialized"));
+    expect(result.accept).toBe(false);
+    expect(result.code).toBe(EXIT_PEER_OFFLINE);
+    expect(result.message?.includes("not initialized")).toBeTruthy();
   });
 });

@@ -5,8 +5,7 @@
  * it passed req.url directly to path.join() without sanitization.
  * These tests verify the fix is in place.
  */
-import { describe, it, afterEach, beforeEach } from "node:test";
-import assert from "node:assert";
+import { describe, it, afterEach, beforeEach, expect } from "vitest";
 import http from "node:http";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -61,71 +60,68 @@ describe("UI Server Path Traversal Protection (WOP-619)", () => {
 
 	it("should serve ui.js from plugin directory on GET /", async () => {
 		const res = await fetchUrl(`http://127.0.0.1:${port}/`);
-		assert.strictEqual(res.status, 200);
-		assert.ok(res.body.includes("p2p ui"));
+		expect(res.status).toBe(200);
+		expect(res.body.includes("p2p ui")).toBeTruthy();
 	});
 
 	it("should serve ui.js from plugin directory on GET /ui.js", async () => {
 		const res = await fetchUrl(`http://127.0.0.1:${port}/ui.js`);
-		assert.strictEqual(res.status, 200);
-		assert.ok(res.body.includes("p2p ui"));
+		expect(res.status).toBe(200);
+		expect(res.body.includes("p2p ui")).toBeTruthy();
 	});
 
 	it("should serve .css files from plugin directory", async () => {
 		const res = await fetchUrl(`http://127.0.0.1:${port}/style.css`);
-		assert.strictEqual(res.status, 200);
-		assert.ok(res.body.includes("color: red"));
+		expect(res.status).toBe(200);
+		expect(res.body.includes("color: red")).toBeTruthy();
 	});
 
 	it("should serve .html files from plugin directory", async () => {
 		const res = await fetchUrl(`http://127.0.0.1:${port}/index.html`);
-		assert.strictEqual(res.status, 200);
-		assert.ok(res.body.includes("P2P"));
+		expect(res.status).toBe(200);
+		expect(res.body.includes("P2P")).toBeTruthy();
 	});
 
 	it("should return 404 for non-existent allowed file", async () => {
 		const res = await fetchUrl(`http://127.0.0.1:${port}/nonexistent.js`);
-		assert.strictEqual(res.status, 404);
+		expect(res.status).toBe(404);
 	});
 
 	it("should block ../ traversal (GET /../../etc/passwd)", async () => {
 		const res = await fetchUrl(
 			`http://127.0.0.1:${port}/../../etc/passwd`,
 		);
-		assert.strictEqual(res.status, 403);
+		expect(res.status).toBe(403);
 	});
 
 	it("should block URL-encoded traversal (GET /%2e%2e/%2e%2e/etc/passwd)", async () => {
 		const res = await fetchUrl(
 			`http://127.0.0.1:${port}/%2e%2e/%2e%2e/etc/passwd`,
 		);
-		assert.strictEqual(res.status, 403);
+		expect(res.status).toBe(403);
 	});
 
 	it("should block traversal with query string (GET /../../../etc/passwd?foo=bar)", async () => {
 		const res = await fetchUrl(
 			`http://127.0.0.1:${port}/../../../etc/passwd?foo=bar`,
 		);
-		assert.strictEqual(res.status, 403);
+		expect(res.status).toBe(403);
 	});
 
 	it("should block non-allowlisted extension .json (403 Forbidden)", async () => {
 		const res = await fetchUrl(`http://127.0.0.1:${port}/secret.json`);
-		assert.strictEqual(res.status, 403);
+		expect(res.status).toBe(403);
 	});
 
 	it("should block non-allowlisted extension .exe (403 Forbidden)", async () => {
 		const res = await fetchUrl(`http://127.0.0.1:${port}/malware.exe`);
-		assert.strictEqual(res.status, 403);
+		expect(res.status).toBe(403);
 	});
 
 	it("should block absolute path injection (GET //etc/passwd)", async () => {
 		// Double-slash may be treated as /etc/passwd — must not serve it
 		const res = await fetchUrl(`http://127.0.0.1:${port}//etc/passwd`);
 		// Either 403 (traversal blocked) or 404 (file not in dir) is acceptable
-		assert.ok(
-			res.status === 403 || res.status === 404,
-			`Expected 403 or 404, got ${res.status}`,
-		);
+		expect(res.status === 403 || res.status === 404).toBeTruthy();
 	});
 });
