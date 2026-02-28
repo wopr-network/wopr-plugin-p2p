@@ -105,13 +105,19 @@ async function handleFriendList(_ctx: WOPRPluginContext): Promise<void> {
   const friends = getFriends();
 
   if (friends.length === 0) {
+    console.info("No friends yet. Use /friend @username in Discord to send a friend request.");
     return;
   }
 
+  console.info(`Friends (${friends.length}):`);
+  console.info("Name              | Pubkey     | Caps              | Session");
+  console.info("------------------|------------|-------------------|--------");
+
   for (const f of friends) {
-    const _name = f.name.padEnd(17);
-    const _pubkey = shortKey(f.publicKey).padEnd(10);
-    const _caps = f.caps.join(",").padEnd(17);
+    const name = f.name.padEnd(17);
+    const pubkey = shortKey(f.publicKey).padEnd(10);
+    const caps = f.caps.join(",").padEnd(17);
+    console.info(`${name}| ${pubkey} | ${caps} | ${f.sessionName}`);
   }
 }
 
@@ -129,8 +135,16 @@ async function handleFriendAccept(_ctx: WOPRPluginContext, args: string[]): Prom
   const result = acceptPendingRequest(from);
   if (!result) {
     console.error(`No pending friend request from "${from}"`);
+    console.info("Use 'wopr friend pending' to see pending requests.");
     return;
   }
+
+  console.info(`Accepted friend request from ${from}`);
+  console.info(`Session: ${result.friend.sessionName}`);
+  console.info(`Caps: ${result.friend.caps.join(", ")}`);
+  console.info("");
+  console.info("Note: The accept message needs to be posted to the channel where");
+  console.info("the request was received. Use /accept in that channel.");
 }
 
 async function handleFriendRequest(
@@ -143,18 +157,24 @@ async function handleFriendRequest(
 To send a friend request, use the /friend command in a channel:
 
   if (incoming.length === 0 && outgoing.length === 0) {
+    console.info("No pending friend requests.");
     return;
   }
 
   if (incoming.length > 0) {
+    console.info(`Incoming requests (${incoming.length}):`);
     for (const p of incoming) {
-      const _age = Math.round((Date.now() - p.receivedAt) / 60000);
+      const age = Math.round((Date.now() - p.receivedAt) / 60000);
+      console.info(`  @${p.request.from} (${shortKey(p.request.pubkey)}) - ${age}m ago via ${p.channel}`);
     }
+    console.info("");
   }
 
   if (outgoing.length > 0) {
+    console.info(`Outgoing requests (${outgoing.length}):`);
     for (const p of outgoing) {
-      const _age = Math.round((Date.now() - p.sentAt) / 60000);
+      const age = Math.round((Date.now() - p.sentAt) / 60000);
+      console.info(`  @${p.request.to} - ${age}m ago via ${p.channel}`);
     }
   }
 }
@@ -171,6 +191,7 @@ async function handleFriendAccept(
   const name = args[0].startsWith("@") ? args[0].slice(1) : args[0];
 
   if (removeFriend(name)) {
+    console.info(`Removed friend: ${name}`);
   } else {
     console.error(`Friend not found: ${name}`);
   }
@@ -186,11 +207,14 @@ async function handleFriendPending(_ctx: WOPRPluginContext): Promise<void> {
   const validCaps = ["message", "inject"];
   if (!validCaps.includes(cap)) {
     console.error(`Invalid capability: ${cap}`);
+    console.info(`Valid: ${validCaps.join(", ")}`);
     return;
   }
 
   if (grantFriendCap(name, cap)) {
-    const _friend = getFriend(name);
+    const friend = getFriend(name);
+    console.info(`Granted ${cap} to ${name}`);
+    console.info(`Current caps: ${friend?.caps.join(", ")}`);
   } else {
     console.error(`Friend not found: ${name}`);
   }
@@ -209,7 +233,9 @@ async function handleFriendRemove(
   const cap = args[1];
 
   if (revokeFriendCap(name, cap)) {
-    const _friend = getFriend(name);
+    const friend = getFriend(name);
+    console.info(`Revoked ${cap} from ${name}`);
+    console.info(`Current caps: ${friend?.caps.join(", ")}`);
   } else {
     console.error(`Friend not found or cap not granted: ${name}`);
   }
@@ -228,9 +254,13 @@ async function handleFriendGrant(
   if (!action || action === "list") {
     const rules = getAutoAcceptRules();
     if (rules.length === 0) {
+      console.info("No auto-accept rules configured.");
+      console.info("Add with: wopr friend auto-accept add <pattern>");
     } else {
+      console.info("Auto-accept rules:");
       for (const r of rules) {
-        const _added = new Date(r.addedAt).toLocaleDateString();
+        const added = new Date(r.addedAt).toLocaleDateString();
+        console.info(`  "${r.pattern}" (added ${added})`);
       }
     }
     return;
@@ -239,10 +269,15 @@ async function handleFriendGrant(
   if (action === "add") {
     if (!pattern) {
       console.error("Usage: wopr friend auto-accept add <pattern>");
+      console.info("Examples:");
+      console.info('  wopr friend auto-accept add "*"       # Accept all');
+      console.info('  wopr friend auto-accept add "hope"    # Accept from hope');
+      console.info('  wopr friend auto-accept add "hope|wopr"  # Accept from hope or wopr');
       return;
     }
 
     addAutoAcceptRule(pattern);
+    console.info(`Added auto-accept rule: "${pattern}"`);
     return;
   }
 
@@ -256,6 +291,7 @@ async function handleFriendRevoke(
 	}
 
     if (removeAutoAcceptRule(pattern)) {
+      console.info(`Removed auto-accept rule: "${pattern}"`);
     } else {
       console.error(`Rule not found: "${pattern}"`);
     }
