@@ -6,18 +6,14 @@
 
 import { describe, it, afterEach, expect } from "vitest";
 import { mkdirSync, rmSync } from "node:fs";
-import { join } from "node:path";
 import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, describe, it } from "node:test";
 
-import {
-  parseFriendRequest,
-  parseFriendAccept,
-  formatFriendRequest,
-  formatFriendAccept,
-} from "../src/friends.js";
+import { formatFriendAccept, formatFriendRequest, parseFriendAccept, parseFriendRequest } from "../src/friends.js";
 
 /** Temporary data directory for tests that touch friends state */
-const TEST_DATA_DIR = join(tmpdir(), "wopr-p2p-test-friends-" + process.pid);
+const TEST_DATA_DIR = join(tmpdir(), `wopr-p2p-test-friends-${process.pid}`);
 
 /**
  * Set up isolated test data directory for friends state.
@@ -35,7 +31,8 @@ function useTestDataDir() {
 describe("Friend Protocol Message Parsing", () => {
   describe("parseFriendRequest", () => {
     it("should parse a valid FRIEND_REQUEST message", () => {
-      const msg = "FRIEND_REQUEST | to:hope | from:wopr | pubkey:abc123 | encryptPub:def456 | ts:1700000000000 | sig:xyz789";
+      const msg =
+        "FRIEND_REQUEST | to:hope | from:wopr | pubkey:abc123 | encryptPub:def456 | ts:1700000000000 | sig:xyz789";
       const result = parseFriendRequest(msg);
 
       expect(result?.type).toBe("FRIEND_REQUEST");
@@ -49,10 +46,10 @@ describe("Friend Protocol Message Parsing", () => {
 
     it("should return null for invalid FRIEND_REQUEST format", () => {
       const invalidMsgs = [
-        "FRIEND_REQUEST | to:hope",  // Missing fields
-        "FRIEND_ACCEPT | to:hope | from:wopr | pubkey:abc | encryptPub:def | ts:123 | sig:xyz",  // Wrong type
-        "Hello there",  // Not a friend request
-        "",  // Empty
+        "FRIEND_REQUEST | to:hope", // Missing fields
+        "FRIEND_ACCEPT | to:hope | from:wopr | pubkey:abc | encryptPub:def | ts:123 | sig:xyz", // Wrong type
+        "Hello there", // Not a friend request
+        "", // Empty
       ];
 
       for (const msg of invalidMsgs) {
@@ -62,7 +59,8 @@ describe("Friend Protocol Message Parsing", () => {
 
     it("should handle pubkeys with special characters", () => {
       // Base64 keys can contain +, /, =
-      const msg = "FRIEND_REQUEST | to:hope | from:wopr | pubkey:abc+/123= | encryptPub:def+/456= | ts:1700000000000 | sig:xyz+/789=";
+      const msg =
+        "FRIEND_REQUEST | to:hope | from:wopr | pubkey:abc+/123= | encryptPub:def+/456= | ts:1700000000000 | sig:xyz+/789=";
       const result = parseFriendRequest(msg);
 
       expect(result?.pubkey).toBe("abc+/123=");
@@ -73,7 +71,8 @@ describe("Friend Protocol Message Parsing", () => {
 
   describe("parseFriendAccept", () => {
     it("should parse a valid FRIEND_ACCEPT message", () => {
-      const msg = "FRIEND_ACCEPT | to:wopr | from:hope | pubkey:def456 | encryptPub:ghi789 | requestSig:abc123 | ts:1700000000000 | sig:jkl012";
+      const msg =
+        "FRIEND_ACCEPT | to:wopr | from:hope | pubkey:def456 | encryptPub:ghi789 | requestSig:abc123 | ts:1700000000000 | sig:jkl012";
       const result = parseFriendAccept(msg);
 
       expect(result?.type).toBe("FRIEND_ACCEPT");
@@ -88,8 +87,8 @@ describe("Friend Protocol Message Parsing", () => {
 
     it("should return null for invalid FRIEND_ACCEPT format", () => {
       const invalidMsgs = [
-        "FRIEND_ACCEPT | to:wopr | from:hope",  // Missing fields
-        "FRIEND_REQUEST | to:hope | from:wopr | pubkey:abc | encryptPub:def | ts:123 | sig:xyz",  // Wrong type
+        "FRIEND_ACCEPT | to:wopr | from:hope", // Missing fields
+        "FRIEND_REQUEST | to:hope | from:wopr | pubkey:abc | encryptPub:def | ts:123 | sig:xyz", // Wrong type
       ];
 
       for (const msg of invalidMsgs) {

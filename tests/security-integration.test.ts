@@ -9,27 +9,28 @@ import { describe, it, beforeEach, afterEach, expect, vi } from "vitest";
 import { mkdirSync, rmSync, existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-
+import { join } from "node:path";
+import { afterEach, beforeEach, describe, it } from "node:test";
+import { initIdentity } from "../src/identity.js";
 import {
-  FRIEND_CAP_TO_WOPR_CAPS,
   FRIEND_CAP_TO_TRUST_LEVEL,
+  FRIEND_CAP_TO_WOPR_CAPS,
+  getFriendSecurityContext,
   getHighestTrustLevel,
   getWoprCapabilities,
-  loadSecurityConfig,
-  saveSecurityConfig,
-  syncFriendToSecurity,
-  removeFriendFromSecurity,
   hasFriendCapability,
-  getFriendSecurityContext,
-  validateFriendAction,
-  updateFriendSecurityCaps,
+  loadSecurityConfig,
+  removeFriendFromSecurity,
+  saveSecurityConfig,
   syncAllFriendsToSecurity,
+  syncFriendToSecurity,
+  updateFriendSecurityCaps,
+  validateFriendAction,
 } from "../src/security-integration.js";
-import { initIdentity } from "../src/identity.js";
 import type { Friend } from "../src/types.js";
 
-const TEST_DATA_DIR = join(tmpdir(), "wopr-p2p-test-secint-" + process.pid);
-const TEST_WOPR_HOME = join(tmpdir(), "wopr-secint-home-" + process.pid);
+const TEST_DATA_DIR = join(tmpdir(), `wopr-p2p-test-secint-${process.pid}`);
+const TEST_WOPR_HOME = join(tmpdir(), `wopr-secint-home-${process.pid}`);
 
 function useTestDirs() {
   mkdirSync(TEST_DATA_DIR, { recursive: true });
@@ -402,7 +403,7 @@ describe("Friend Capability Checks", () => {
     });
 
     it("should deny access to wrong session", () => {
-      const friend = createFriendInState("heidi", "heidi-key", ["message"]);
+      const _friend = createFriendInState("heidi", "heidi-key", ["message"]);
 
       const result = secmod.validateFriendAction("heidi-key", "message", "wrong-session");
       expect(result.allowed).toBe(false);

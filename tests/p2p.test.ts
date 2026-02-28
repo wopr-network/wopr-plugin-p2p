@@ -9,21 +9,15 @@
 
 import { describe, it, afterEach, expect } from "vitest";
 import { mkdirSync, rmSync } from "node:fs";
-import { join } from "node:path";
 import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, describe, it } from "node:test";
 
-import {
-  setP2PLogger,
-  createP2PListener,
-  sendP2PLog,
-  sendP2PInject,
-  claimToken,
-  sendKeyRotation,
-} from "../src/p2p.js";
+import { claimToken, createP2PListener, sendKeyRotation, sendP2PInject, sendP2PLog, setP2PLogger } from "../src/p2p.js";
 import { EXIT_INVALID } from "../src/types.js";
 
 /** Temporary data directory for tests — empty, so no identity exists */
-const TEST_DATA_DIR = join(tmpdir(), "wopr-p2p-test-p2p-" + process.pid);
+const TEST_DATA_DIR = join(tmpdir(), `wopr-p2p-test-p2p-${process.pid}`);
 
 /**
  * Set up isolated test data directory (empty, so getIdentity() returns null).

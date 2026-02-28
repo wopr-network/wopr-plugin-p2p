@@ -13,12 +13,12 @@ import { describe, it, expect } from "vitest";
 
 // Import the discovery module functions
 import {
-  getTopics,
   getDiscoveredPeers,
   getProfile,
-  updateProfile,
+  getTopics,
   notifyGrantUpdate,
   shutdownDiscovery,
+  updateProfile,
 } from "../src/discovery.js";
 
 describe("Discovery Module - State Management", () => {

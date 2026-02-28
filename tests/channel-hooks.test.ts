@@ -7,7 +7,7 @@
 
 import { describe, it, expect } from "vitest";
 
-import { registerChannelHooks, registerAutoAcceptCommands } from "../src/channel-hooks.js";
+import { registerAutoAcceptCommands, registerChannelHooks } from "../src/channel-hooks.js";
 
 // Helper: create a mock plugin context
 function createMockCtx(opts?: { channels?: any[]; noChannelProviders?: boolean }) {

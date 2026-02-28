@@ -7,12 +7,11 @@
 
 import { describe, it, beforeEach, afterEach, expect, vi } from "vitest";
 import { mkdirSync, rmSync } from "node:fs";
-import { join } from "node:path";
 import { tmpdir } from "node:os";
 
 import type { AccessGrant, Peer, KeyRotation } from "../src/types.js";
 
-const TEST_DATA_DIR = join(tmpdir(), "wopr-p2p-test-trust-" + process.pid);
+const TEST_DATA_DIR = join(tmpdir(), `wopr-p2p-test-trust-${process.pid}`);
 
 function useTestDataDir() {
   mkdirSync(TEST_DATA_DIR, { recursive: true });
@@ -53,13 +52,15 @@ describe("Access Grants", () => {
     });
 
     it("should round-trip save and load grants", () => {
-      const grants: AccessGrant[] = [{
-        id: "grant-1",
-        peerKey: "key-1",
-        sessions: ["session-a"],
-        caps: ["message"],
-        created: Date.now(),
-      }];
+      const grants: AccessGrant[] = [
+        {
+          id: "grant-1",
+          peerKey: "key-1",
+          sessions: ["session-a"],
+          caps: ["message"],
+          created: Date.now(),
+        },
+      ];
 
       trust.saveAccessGrants(grants);
       const loaded = trust.getAccessGrants();
@@ -132,13 +133,15 @@ describe("Peer Management", () => {
     });
 
     it("should round-trip save and load peers", () => {
-      const peers: Peer[] = [{
-        id: "abcd1234",
-        publicKey: "pub-key-1",
-        sessions: ["s1"],
-        caps: ["message"],
-        added: Date.now(),
-      }];
+      const peers: Peer[] = [
+        {
+          id: "abcd1234",
+          publicKey: "pub-key-1",
+          sessions: ["s1"],
+          caps: ["message"],
+          added: Date.now(),
+        },
+      ];
 
       trust.savePeers(peers);
       const loaded = trust.getPeers();

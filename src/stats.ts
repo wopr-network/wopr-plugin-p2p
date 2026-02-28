@@ -5,32 +5,29 @@
  */
 
 export interface P2PStats {
-	messagesRelayed: number;
-	connectionsTotal: number;
-	startedAt: number;
+  messagesRelayed: number;
+  connectionsTotal: number;
+  startedAt: number;
 }
 
 let stats: P2PStats = {
-	messagesRelayed: 0,
-	connectionsTotal: 0,
-	startedAt: Date.now(),
+  messagesRelayed: 0,
+  connectionsTotal: 0,
+  startedAt: Date.now(),
 };
 
 export function getP2PStats(): Readonly<P2PStats> {
-	return { ...stats };
+  return { ...stats };
 }
 
-export function incrementStat(
-	key: keyof Omit<P2PStats, "startedAt">,
-	amount = 1,
-): void {
-	stats[key] += amount;
+export function incrementStat(key: keyof Omit<P2PStats, "startedAt">, amount = 1): void {
+  stats[key] += amount;
 }
 
 export function resetStats(): void {
-	stats = {
-		messagesRelayed: 0,
-		connectionsTotal: 0,
-		startedAt: Date.now(),
-	};
+  stats = {
+    messagesRelayed: 0,
+    connectionsTotal: 0,
+    startedAt: Date.now(),
+  };
 }
