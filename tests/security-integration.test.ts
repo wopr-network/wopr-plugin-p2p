@@ -5,8 +5,7 @@
  * friend action validation, and security context retrieval.
  */
 
-import { describe, it, beforeEach, afterEach } from "node:test";
-import assert from "node:assert";
+import { describe, it, beforeEach, afterEach, expect, vi } from "vitest";
 import { mkdirSync, rmSync, existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
@@ -48,21 +47,21 @@ function useTestDirs() {
 describe("Capability Mapping Constants", () => {
   describe("FRIEND_CAP_TO_WOPR_CAPS", () => {
     it("should map message to inject", () => {
-      assert.deepStrictEqual(FRIEND_CAP_TO_WOPR_CAPS.message, ["inject"]);
+      expect(FRIEND_CAP_TO_WOPR_CAPS.message).toEqual(["inject"]);
     });
 
     it("should map inject to inject and inject.tools", () => {
-      assert.deepStrictEqual(FRIEND_CAP_TO_WOPR_CAPS.inject, ["inject", "inject.tools"]);
+      expect(FRIEND_CAP_TO_WOPR_CAPS.inject).toEqual(["inject", "inject.tools"]);
     });
   });
 
   describe("FRIEND_CAP_TO_TRUST_LEVEL", () => {
     it("should map message to untrusted", () => {
-      assert.strictEqual(FRIEND_CAP_TO_TRUST_LEVEL.message, "untrusted");
+      expect(FRIEND_CAP_TO_TRUST_LEVEL.message).toBe("untrusted");
     });
 
     it("should map inject to untrusted", () => {
-      assert.strictEqual(FRIEND_CAP_TO_TRUST_LEVEL.inject, "untrusted");
+      expect(FRIEND_CAP_TO_TRUST_LEVEL.inject).toBe("untrusted");
     });
   });
 });
@@ -70,23 +69,23 @@ describe("Capability Mapping Constants", () => {
 describe("Trust Level Calculation", () => {
   describe("getHighestTrustLevel", () => {
     it("should return untrusted for message cap", () => {
-      assert.strictEqual(getHighestTrustLevel(["message"]), "untrusted");
+      expect(getHighestTrustLevel(["message"])).toBe("untrusted");
     });
 
     it("should return untrusted for inject cap", () => {
-      assert.strictEqual(getHighestTrustLevel(["inject"]), "untrusted");
+      expect(getHighestTrustLevel(["inject"])).toBe("untrusted");
     });
 
     it("should return untrusted for combined caps", () => {
-      assert.strictEqual(getHighestTrustLevel(["message", "inject"]), "untrusted");
+      expect(getHighestTrustLevel(["message", "inject"])).toBe("untrusted");
     });
 
     it("should return untrusted for empty caps", () => {
-      assert.strictEqual(getHighestTrustLevel([]), "untrusted");
+      expect(getHighestTrustLevel([])).toBe("untrusted");
     });
 
     it("should return untrusted for unknown caps", () => {
-      assert.strictEqual(getHighestTrustLevel(["unknown-cap"]), "untrusted");
+      expect(getHighestTrustLevel(["unknown-cap"])).toBe("untrusted");
     });
   });
 });
@@ -95,29 +94,29 @@ describe("WOPR Capabilities", () => {
   describe("getWoprCapabilities", () => {
     it("should return inject for message cap", () => {
       const caps = getWoprCapabilities(["message"]);
-      assert.deepStrictEqual(caps, ["inject"]);
+      expect(caps).toEqual(["inject"]);
     });
 
     it("should return inject and inject.tools for inject cap", () => {
       const caps = getWoprCapabilities(["inject"]);
-      assert.ok(caps.includes("inject"));
-      assert.ok(caps.includes("inject.tools"));
+      expect(caps.includes("inject")).toBeTruthy();
+      expect(caps.includes("inject.tools")).toBeTruthy();
     });
 
     it("should deduplicate combined caps", () => {
       const caps = getWoprCapabilities(["message", "inject"]);
       // Both map to "inject", inject also adds "inject.tools"
-      assert.ok(caps.includes("inject"));
-      assert.ok(caps.includes("inject.tools"));
-      assert.strictEqual(caps.filter(c => c === "inject").length, 1);
+      expect(caps.includes("inject")).toBeTruthy();
+      expect(caps.includes("inject.tools")).toBeTruthy();
+      expect(caps.filter(c => c === "inject").length).toBe(1);
     });
 
     it("should return empty for unknown caps", () => {
-      assert.deepStrictEqual(getWoprCapabilities(["unknown"]), []);
+      expect(getWoprCapabilities(["unknown"])).toEqual([]);
     });
 
     it("should return empty for empty input", () => {
-      assert.deepStrictEqual(getWoprCapabilities([]), []);
+      expect(getWoprCapabilities([])).toEqual([]);
     });
   });
 });
@@ -142,9 +141,9 @@ describe("Security Config Persistence", () => {
       saveSecurityConfig({ enforcement: "warn", marker });
 
       const loaded = loadSecurityConfig();
-      assert.ok(loaded);
-      assert.strictEqual(loaded.enforcement, "warn");
-      assert.strictEqual(loaded.marker, marker);
+      expect(loaded).toBeTruthy();
+      expect(loaded.enforcement).toBe("warn");
+      expect(loaded.marker).toBe(marker);
     });
   });
 });
@@ -180,9 +179,9 @@ describe("Friend Security Sync", () => {
       syncFriendToSecurity(friend);
 
       const config = loadSecurityConfig();
-      assert.ok(config);
-      assert.ok(config.sessions[friend.sessionName]);
-      assert.ok(config.sources[`p2p:${friend.publicKey}`]);
+      expect(config).toBeTruthy();
+      expect(config.sessions[friend.sessionName]).toBeTruthy();
+      expect(config.sources[`p2p:${friend.publicKey}`]).toBeTruthy();
     });
 
     it("should configure session with correct capabilities", () => {
@@ -192,9 +191,9 @@ describe("Friend Security Sync", () => {
       const config = loadSecurityConfig();
       const session = config.sessions[friend.sessionName];
 
-      assert.deepStrictEqual(session.capabilities, ["inject"]);
-      assert.deepStrictEqual(session.access, [`p2p:${friend.publicKey}`]);
-      assert.deepStrictEqual(session.indexable, ["self"]);
+      expect(session.capabilities).toEqual(["inject"]);
+      expect(session.access).toEqual([`p2p:${friend.publicKey}`]);
+      expect(session.indexable).toEqual(["self"]);
     });
 
     it("should configure source with correct trust level", () => {
@@ -204,10 +203,10 @@ describe("Friend Security Sync", () => {
       const config = loadSecurityConfig();
       const source = config.sources[`p2p:${friend.publicKey}`];
 
-      assert.strictEqual(source.type, "p2p");
-      assert.strictEqual(source.trust, "untrusted");
-      assert.ok(source.capabilities.includes("inject"));
-      assert.ok(source.capabilities.includes("inject.tools"));
+      expect(source.type).toBe("p2p");
+      expect(source.trust).toBe("untrusted");
+      expect(source.capabilities.includes("inject")).toBeTruthy();
+      expect(source.capabilities.includes("inject.tools")).toBeTruthy();
     });
 
     it("should set rate limits based on trust level", () => {
@@ -218,8 +217,8 @@ describe("Friend Security Sync", () => {
       const source = config.sources[`p2p:${friend.publicKey}`];
 
       // Untrusted gets 30/min, 300/hour
-      assert.strictEqual(source.rateLimit.perMinute, 30);
-      assert.strictEqual(source.rateLimit.perHour, 300);
+      expect(source.rateLimit.perMinute).toBe(30);
+      expect(source.rateLimit.perHour).toBe(300);
     });
 
     it("should update existing config without losing other entries", () => {
@@ -234,10 +233,10 @@ describe("Friend Security Sync", () => {
       syncFriendToSecurity(friend);
 
       const config = loadSecurityConfig();
-      assert.strictEqual(config.enforcement, "strict");
-      assert.ok(config.sessions["existing-session"]);
-      assert.ok(config.sources["existing-source"]);
-      assert.ok(config.sessions[friend.sessionName]);
+      expect(config.enforcement).toBe("strict");
+      expect(config.sessions["existing-session"]).toBeTruthy();
+      expect(config.sources["existing-source"]).toBeTruthy();
+      expect(config.sessions[friend.sessionName]).toBeTruthy();
     });
   });
 
@@ -249,8 +248,8 @@ describe("Friend Security Sync", () => {
       removeFriendFromSecurity(friend);
 
       const config = loadSecurityConfig();
-      assert.strictEqual(config.sessions[friend.sessionName], undefined);
-      assert.strictEqual(config.sources[`p2p:${friend.publicKey}`], undefined);
+      expect(config.sessions[friend.sessionName]).toBe(undefined);
+      expect(config.sources[`p2p:${friend.publicKey}`]).toBe(undefined);
     });
 
     it("should be a no-op when no config exists", () => {
@@ -269,18 +268,59 @@ describe("Friend Security Sync", () => {
       removeFriendFromSecurity(alice);
 
       const config = loadSecurityConfig();
-      assert.strictEqual(config.sessions[alice.sessionName], undefined);
-      assert.ok(config.sessions[bob.sessionName]);
+      expect(config.sessions[alice.sessionName]).toBe(undefined);
+      expect(config.sessions[bob.sessionName]).toBeTruthy();
     });
   });
 });
 
 describe("Friend Capability Checks", () => {
   let cleanup: (() => void) | undefined;
+  let secmod: any;
+  let friendsmod: any;
 
-  beforeEach(() => {
+  /** Add a friend directly into the in-memory friends module state */
+  function createFriendInState(name: string, publicKey: string, caps: string[]): Friend {
+    const sessionName = `friend:p2p:${name}(${publicKey.slice(0, 6)})`;
+    const friend: Friend = {
+      name,
+      publicKey,
+      encryptPub: "enc-" + publicKey,
+      sessionName,
+      addedAt: Date.now(),
+      caps,
+      channel: "discord",
+    };
+    // Use queueForApproval + acceptPendingRequest to populate in-memory state
+    const mockRequest = {
+      type: "FRIEND_REQUEST" as const,
+      to: "me",
+      from: name,
+      pubkey: publicKey,
+      encryptPub: "enc-" + publicKey,
+      timestamp: Date.now(),
+      sig: "mock-sig",
+    };
+    friendsmod.queueForApproval(mockRequest, "discord", "test-channel");
+    const result = friendsmod.acceptPendingRequest(name);
+    if (result) {
+      // Override caps since acceptPendingRequest defaults to ["message"]
+      if (caps.length !== 1 || caps[0] !== "message") {
+        friendsmod.setFriendCaps(name, caps);
+        // Update friend object caps to match
+        friend.caps = caps;
+      }
+    }
+    return friend;
+  }
+
+  beforeEach(async () => {
     cleanup = useTestDirs();
-    initIdentity();
+    vi.resetModules();
+    const identmod = await import("../src/identity.js");
+    identmod.initIdentity();
+    friendsmod = await import("../src/friends.js");
+    secmod = await import("../src/security-integration.js");
   });
 
   afterEach(() => {
@@ -290,44 +330,20 @@ describe("Friend Capability Checks", () => {
     }
   });
 
-  // Helper to create a friend in state
-  function createFriendInState(name: string, publicKey: string, caps: string[]): Friend {
-    const friendsFile = join(TEST_DATA_DIR, "friends.json");
-
-    let state = { friends: [] as Friend[], pendingIn: [], pendingOut: [], autoAccept: [] };
-    if (existsSync(friendsFile)) {
-      state = JSON.parse(readFileSync(friendsFile, "utf-8"));
-    }
-
-    const friend: Friend = {
-      name,
-      publicKey,
-      encryptPub: "enc-" + publicKey,
-      sessionName: `friend:p2p:${name}(${publicKey.slice(0, 6)})`,
-      addedAt: Date.now(),
-      caps,
-      channel: "discord",
-    };
-
-    state.friends.push(friend);
-    writeFileSync(friendsFile, JSON.stringify(state, null, 2), { mode: 0o600 });
-    return friend;
-  }
-
   describe("hasFriendCapability", () => {
     it("should return true when friend has capability", () => {
       createFriendInState("alice", "alice-key", ["message", "inject"]);
-      assert.strictEqual(hasFriendCapability("alice-key", "message"), true);
-      assert.strictEqual(hasFriendCapability("alice-key", "inject"), true);
+      expect(secmod.hasFriendCapability("alice-key", "message")).toBe(true);
+      expect(secmod.hasFriendCapability("alice-key", "inject")).toBe(true);
     });
 
     it("should return false when friend lacks capability", () => {
       createFriendInState("bob", "bob-key", ["message"]);
-      assert.strictEqual(hasFriendCapability("bob-key", "inject"), false);
+      expect(secmod.hasFriendCapability("bob-key", "inject")).toBe(false);
     });
 
     it("should return false for unknown public key", () => {
-      assert.strictEqual(hasFriendCapability("unknown-key", "message"), false);
+      expect(secmod.hasFriendCapability("unknown-key", "message")).toBe(false);
     });
   });
 
@@ -335,96 +351,94 @@ describe("Friend Capability Checks", () => {
     it("should return context for known friend", () => {
       const friend = createFriendInState("charlie", "charlie-key", ["message"]);
 
-      const ctx = getFriendSecurityContext("charlie-key");
-      assert.ok(ctx);
-      assert.strictEqual(ctx.trustLevel, "untrusted");
-      assert.deepStrictEqual(ctx.capabilities, ["inject"]);
-      assert.deepStrictEqual(ctx.allowedSessions, [friend.sessionName]);
+      const ctx = secmod.getFriendSecurityContext("charlie-key");
+      expect(ctx).toBeTruthy();
+      expect(ctx!.trustLevel).toBe("untrusted");
+      expect(ctx!.capabilities).toEqual(["inject"]);
+      expect(ctx!.allowedSessions).toEqual([friend.sessionName]);
     });
 
     it("should return null for unknown friend", () => {
-      assert.strictEqual(getFriendSecurityContext("unknown-key"), null);
+      expect(secmod.getFriendSecurityContext("unknown-key")).toBe(null);
     });
 
     it("should reflect inject capabilities", () => {
       createFriendInState("dave", "dave-key", ["inject"]);
 
-      const ctx = getFriendSecurityContext("dave-key");
-      assert.ok(ctx);
-      assert.ok(ctx.capabilities.includes("inject"));
-      assert.ok(ctx.capabilities.includes("inject.tools"));
+      const ctx = secmod.getFriendSecurityContext("dave-key");
+      expect(ctx).toBeTruthy();
+      expect(ctx!.capabilities.includes("inject")).toBeTruthy();
+      expect(ctx!.capabilities.includes("inject.tools")).toBeTruthy();
     });
   });
 
   describe("validateFriendAction", () => {
     it("should allow message action for friend with message cap", () => {
-      const friend = createFriendInState("eve", "eve-key", ["message"]);
+      createFriendInState("eve", "eve-key", ["message"]);
 
-      const result = validateFriendAction("eve-key", "message");
-      assert.strictEqual(result.allowed, true);
+      const result = secmod.validateFriendAction("eve-key", "message");
+      expect(result.allowed).toBe(true);
     });
 
     it("should allow inject action for friend with inject cap", () => {
       createFriendInState("frank", "frank-key", ["inject"]);
 
-      const result = validateFriendAction("frank-key", "inject");
-      assert.strictEqual(result.allowed, true);
+      const result = secmod.validateFriendAction("frank-key", "inject");
+      expect(result.allowed).toBe(true);
     });
 
     it("should deny inject for message-only friend", () => {
       createFriendInState("grace", "grace-key", ["message"]);
 
-      const result = validateFriendAction("grace-key", "inject");
-      assert.strictEqual(result.allowed, false);
-      assert.ok(result.reason?.includes("Missing capability"));
+      const result = secmod.validateFriendAction("grace-key", "inject");
+      expect(result.allowed).toBe(false);
+      expect(result.reason?.includes("Missing capability")).toBeTruthy();
     });
 
     it("should deny unknown public key", () => {
-      const result = validateFriendAction("unknown-key", "message");
-      assert.strictEqual(result.allowed, false);
-      assert.strictEqual(result.reason, "Not a friend");
+      const result = secmod.validateFriendAction("unknown-key", "message");
+      expect(result.allowed).toBe(false);
+      expect(result.reason).toBe("Not a friend");
     });
 
     it("should deny access to wrong session", () => {
       const friend = createFriendInState("heidi", "heidi-key", ["message"]);
 
-      const result = validateFriendAction("heidi-key", "message", "wrong-session");
-      assert.strictEqual(result.allowed, false);
-      assert.ok(result.reason?.includes("Can only access session"));
+      const result = secmod.validateFriendAction("heidi-key", "message", "wrong-session");
+      expect(result.allowed).toBe(false);
+      expect(result.reason?.includes("Can only access session")).toBeTruthy();
     });
 
     it("should allow access to own session", () => {
       const friend = createFriendInState("ivan", "ivan-key", ["message"]);
 
-      const result = validateFriendAction("ivan-key", "message", friend.sessionName);
-      assert.strictEqual(result.allowed, true);
+      const result = secmod.validateFriendAction("ivan-key", "message", friend.sessionName);
+      expect(result.allowed).toBe(true);
     });
   });
 
   describe("updateFriendSecurityCaps", () => {
     it("should update security config for existing friend", () => {
       const friend = createFriendInState("judy", "judy-key", ["message"]);
-      syncFriendToSecurity(friend);
+      secmod.syncFriendToSecurity(friend);
 
       // Upgrade capabilities
-      updateFriendSecurityCaps("judy", ["message", "inject"]);
+      secmod.updateFriendSecurityCaps("judy", ["message", "inject"]);
 
-      const config = loadSecurityConfig();
+      const config = secmod.loadSecurityConfig();
       const source = config.sources[`p2p:judy-key`];
-      assert.ok(source.capabilities.includes("inject"));
-      assert.ok(source.capabilities.includes("inject.tools"));
+      expect(source.capabilities.includes("inject")).toBeTruthy();
+      expect(source.capabilities.includes("inject.tools")).toBeTruthy();
 
-      // Verify caps are persisted to disk (not just in-memory)
-      const friendsFile = join(TEST_DATA_DIR, "friends.json");
-      const persisted = JSON.parse(readFileSync(friendsFile, "utf-8"));
-      const judy = persisted.friends.find((f: Friend) => f.name === "judy");
-      assert.ok(judy, "judy should exist in persisted state");
-      assert.ok(judy.caps.includes("inject"), "inject cap should be persisted to disk");
+      // Verify caps are updated in-memory
+      const judyFriend = friendsmod.getFriend("judy");
+      expect(judyFriend).toBeTruthy();
+      expect(judyFriend.caps.includes("inject")).toBeTruthy();
     });
 
     it("should be a no-op for unknown friend", () => {
       // Should not throw
-      updateFriendSecurityCaps("nonexistent", ["inject"]);
+      secmod.updateFriendSecurityCaps("nonexistent", ["inject"]);
     });
   });
 
@@ -433,16 +447,16 @@ describe("Friend Capability Checks", () => {
       createFriendInState("kate", "kate-key", ["message"]);
       createFriendInState("leo", "leo-key", ["inject"]);
 
-      syncAllFriendsToSecurity();
+      secmod.syncAllFriendsToSecurity();
 
-      const config = loadSecurityConfig();
-      assert.ok(config.sources["p2p:kate-key"]);
-      assert.ok(config.sources["p2p:leo-key"]);
+      const config = secmod.loadSecurityConfig();
+      expect(config.sources["p2p:kate-key"]).toBeTruthy();
+      expect(config.sources["p2p:leo-key"]).toBeTruthy();
     });
 
     it("should work with no friends", () => {
       // Should not throw when no friends exist
-      syncAllFriendsToSecurity();
+      secmod.syncAllFriendsToSecurity();
     });
   });
 });

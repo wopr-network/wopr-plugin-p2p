@@ -5,30 +5,11 @@
  * key rotation processing, and expired key history cleanup.
  */
 
-import { describe, it, beforeEach, afterEach } from "node:test";
-import assert from "node:assert";
+import { describe, it, beforeEach, afterEach, expect, vi } from "vitest";
 import { mkdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
-import {
-  getAccessGrants,
-  saveAccessGrants,
-  getPeers,
-  savePeers,
-  isAuthorized,
-  getGrantForPeer,
-  findPeer,
-  revokePeer,
-  namePeer,
-  grantAccess,
-  addPeer,
-  processPeerKeyRotation,
-  cleanupExpiredKeyHistory,
-  getAllPeerKeys,
-  useInvite,
-} from "../src/trust.js";
-import { initIdentity, shortKey, verifyKeyRotation, rotateIdentity, createInviteToken } from "../src/identity.js";
 import type { AccessGrant, Peer, KeyRotation } from "../src/types.js";
 
 const TEST_DATA_DIR = join(tmpdir(), "wopr-p2p-test-trust-" + process.pid);
@@ -42,11 +23,21 @@ function useTestDataDir() {
   };
 }
 
+// Helper: reset all module caches and re-import trust + identity
+async function freshModules() {
+  vi.resetModules();
+  const trust = await import("../src/trust.js");
+  const identity = await import("../src/identity.js");
+  return { trust, identity };
+}
+
 describe("Access Grants", () => {
   let cleanup: (() => void) | undefined;
+  let trust: any;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     cleanup = useTestDataDir();
+    ({ trust } = await freshModules());
   });
 
   afterEach(() => {
@@ -58,7 +49,7 @@ describe("Access Grants", () => {
 
   describe("getAccessGrants / saveAccessGrants", () => {
     it("should return empty array when no file exists", () => {
-      assert.deepStrictEqual(getAccessGrants(), []);
+      expect(trust.getAccessGrants()).toEqual([]);
     });
 
     it("should round-trip save and load grants", () => {
@@ -70,58 +61,62 @@ describe("Access Grants", () => {
         created: Date.now(),
       }];
 
-      saveAccessGrants(grants);
-      const loaded = getAccessGrants();
+      trust.saveAccessGrants(grants);
+      const loaded = trust.getAccessGrants();
 
-      assert.strictEqual(loaded.length, 1);
-      assert.strictEqual(loaded[0].id, "grant-1");
-      assert.strictEqual(loaded[0].peerKey, "key-1");
+      expect(loaded.length).toBe(1);
+      expect(loaded[0].id).toBe("grant-1");
+      expect(loaded[0].peerKey).toBe("key-1");
     });
   });
 
   describe("grantAccess", () => {
-    it("should create a new grant", () => {
-      initIdentity();
-      addPeer("peer-key-1", ["s1"], ["message"]);
-      const grant = grantAccess("peer-key-1", ["session-1"], ["message"]);
+    it("should create a new grant", async () => {
+      const { identity } = await freshModules();
+      ({ trust } = await freshModules());
+      identity.initIdentity();
+      trust.addPeer("peer-key-1", ["s1"], ["message"]);
+      const grant = trust.grantAccess("peer-key-1", ["session-1"], ["message"]);
 
-      assert.ok(grant.id.startsWith("grant-"));
-      assert.strictEqual(grant.peerKey, "peer-key-1");
-      assert.deepStrictEqual(grant.sessions, ["session-1"]);
-      assert.deepStrictEqual(grant.caps, ["message"]);
+      expect(grant.id.startsWith("grant-")).toBeTruthy();
+      expect(grant.peerKey).toBe("peer-key-1");
+      expect(grant.sessions).toEqual(["session-1"]);
+      expect(grant.caps).toEqual(["message"]);
     });
 
     it("should merge sessions and caps for existing grant", () => {
-      grantAccess("peer-key-2", ["session-1"], ["message"]);
-      const updated = grantAccess("peer-key-2", ["session-2"], ["inject"]);
+      trust.grantAccess("peer-key-2", ["session-1"], ["message"]);
+      const updated = trust.grantAccess("peer-key-2", ["session-2"], ["inject"]);
 
-      assert.ok(updated.sessions.includes("session-1"));
-      assert.ok(updated.sessions.includes("session-2"));
-      assert.ok(updated.caps.includes("message"));
-      assert.ok(updated.caps.includes("inject"));
+      expect(updated.sessions.includes("session-1")).toBeTruthy();
+      expect(updated.sessions.includes("session-2")).toBeTruthy();
+      expect(updated.caps.includes("message")).toBeTruthy();
+      expect(updated.caps.includes("inject")).toBeTruthy();
     });
 
     it("should not duplicate sessions or caps", () => {
-      grantAccess("peer-key-3", ["s1"], ["message"]);
-      const updated = grantAccess("peer-key-3", ["s1"], ["message"]);
+      trust.grantAccess("peer-key-3", ["s1"], ["message"]);
+      const updated = trust.grantAccess("peer-key-3", ["s1"], ["message"]);
 
-      assert.strictEqual(updated.sessions.filter(s => s === "s1").length, 1);
-      assert.strictEqual(updated.caps.filter(c => c === "message").length, 1);
+      expect(updated.sessions.filter((s: string) => s === "s1").length).toBe(1);
+      expect(updated.caps.filter((c: string) => c === "message").length).toBe(1);
     });
 
     it("should store encryptPub when provided", () => {
-      const grant = grantAccess("peer-key-4", ["s1"], ["message"], "encrypt-pub");
+      const grant = trust.grantAccess("peer-key-4", ["s1"], ["message"], "encrypt-pub");
 
-      assert.strictEqual(grant.peerEncryptPub, "encrypt-pub");
+      expect(grant.peerEncryptPub).toBe("encrypt-pub");
     });
   });
 });
 
 describe("Peer Management", () => {
   let cleanup: (() => void) | undefined;
+  let trust: any;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     cleanup = useTestDataDir();
+    ({ trust } = await freshModules());
   });
 
   afterEach(() => {
@@ -133,7 +128,7 @@ describe("Peer Management", () => {
 
   describe("getPeers / savePeers", () => {
     it("should return empty array when no file exists", () => {
-      assert.deepStrictEqual(getPeers(), []);
+      expect(trust.getPeers()).toEqual([]);
     });
 
     it("should round-trip save and load peers", () => {
@@ -145,67 +140,68 @@ describe("Peer Management", () => {
         added: Date.now(),
       }];
 
-      savePeers(peers);
-      const loaded = getPeers();
+      trust.savePeers(peers);
+      const loaded = trust.getPeers();
 
-      assert.strictEqual(loaded.length, 1);
-      assert.strictEqual(loaded[0].publicKey, "pub-key-1");
+      expect(loaded.length).toBe(1);
+      expect(loaded[0].publicKey).toBe("pub-key-1");
     });
   });
 
   describe("addPeer", () => {
     it("should add a new peer", () => {
-      const peer = addPeer("new-pub-key", ["s1"], ["message"]);
+      const peer = trust.addPeer("new-pub-key", ["s1"], ["message"]);
 
-      assert.ok(peer.id);
-      assert.strictEqual(peer.publicKey, "new-pub-key");
-      assert.deepStrictEqual(peer.sessions, ["s1"]);
-      assert.deepStrictEqual(peer.caps, ["message"]);
+      expect(peer.id).toBeTruthy();
+      expect(peer.publicKey).toBe("new-pub-key");
+      expect(peer.sessions).toEqual(["s1"]);
+      expect(peer.caps).toEqual(["message"]);
     });
 
     it("should merge data for existing peer", () => {
-      addPeer("same-key", ["s1"], ["message"]);
-      const updated = addPeer("same-key", ["s2"], ["inject"]);
+      trust.addPeer("same-key", ["s1"], ["message"]);
+      const updated = trust.addPeer("same-key", ["s2"], ["inject"]);
 
-      assert.ok(updated.sessions.includes("s1"));
-      assert.ok(updated.sessions.includes("s2"));
-      assert.ok(updated.caps.includes("message"));
-      assert.ok(updated.caps.includes("inject"));
+      expect(updated.sessions.includes("s1")).toBeTruthy();
+      expect(updated.sessions.includes("s2")).toBeTruthy();
+      expect(updated.caps.includes("message")).toBeTruthy();
+      expect(updated.caps.includes("inject")).toBeTruthy();
     });
 
     it("should update encryptPub when provided", () => {
-      addPeer("ep-key", ["s1"], ["message"]);
-      const updated = addPeer("ep-key", ["s1"], ["message"], "new-encrypt");
+      trust.addPeer("ep-key", ["s1"], ["message"]);
+      const updated = trust.addPeer("ep-key", ["s1"], ["message"], "new-encrypt");
 
-      assert.strictEqual(updated.encryptPub, "new-encrypt");
+      expect(updated.encryptPub).toBe("new-encrypt");
     });
   });
 
   describe("findPeer", () => {
     it("should find by public key", () => {
-      addPeer("find-by-key", ["s1"], ["message"]);
-      const found = findPeer("find-by-key");
+      trust.addPeer("find-by-key", ["s1"], ["message"]);
+      const found = trust.findPeer("find-by-key");
 
-      assert.ok(found);
-      assert.strictEqual(found.publicKey, "find-by-key");
+      expect(found).toBeTruthy();
+      expect(found!.publicKey).toBe("find-by-key");
     });
 
-    it("should find by short ID", () => {
-      addPeer("find-by-id-key", ["s1"], ["message"]);
-      const id = shortKey("find-by-id-key");
-      const found = findPeer(id);
+    it("should find by short ID", async () => {
+      const { identity } = await freshModules();
+      trust.addPeer("find-by-id-key", ["s1"], ["message"]);
+      const id = identity.shortKey("find-by-id-key");
+      const found = trust.findPeer(id);
 
-      assert.ok(found);
-      assert.strictEqual(found.publicKey, "find-by-id-key");
+      expect(found).toBeTruthy();
+      expect(found!.publicKey).toBe("find-by-id-key");
     });
 
     it("should find by name (case insensitive)", () => {
-      addPeer("named-key", ["s1"], ["message"]);
-      namePeer("named-key", "Alice");
+      trust.addPeer("named-key", ["s1"], ["message"]);
+      trust.namePeer("named-key", "Alice");
 
-      const found = findPeer("alice");
-      assert.ok(found);
-      assert.strictEqual(found.name, "Alice");
+      const found = trust.findPeer("alice");
+      expect(found).toBeTruthy();
+      expect(found!.name).toBe("Alice");
     });
 
     it("should find by key history", () => {
@@ -222,64 +218,69 @@ describe("Peer Management", () => {
           validUntil: Date.now() + 100000,
         }],
       }];
-      savePeers(peers);
+      trust.savePeers(peers);
 
-      const found = findPeer("old-key");
-      assert.ok(found);
-      assert.strictEqual(found.publicKey, "current-key");
+      const found = trust.findPeer("old-key");
+      expect(found).toBeTruthy();
+      expect(found!.publicKey).toBe("current-key");
     });
 
     it("should return undefined for unknown peer", () => {
-      assert.strictEqual(findPeer("nonexistent"), undefined);
+      expect(trust.findPeer("nonexistent")).toBe(undefined);
     });
   });
 
   describe("namePeer", () => {
     it("should set a peer name", () => {
-      addPeer("name-key", ["s1"], ["message"]);
-      namePeer("name-key", "Bob");
+      trust.addPeer("name-key", ["s1"], ["message"]);
+      trust.namePeer("name-key", "Bob");
 
-      const peer = findPeer("name-key");
-      assert.ok(peer);
-      assert.strictEqual(peer.name, "Bob");
+      const peer = trust.findPeer("name-key");
+      expect(peer).toBeTruthy();
+      expect(peer!.name).toBe("Bob");
     });
 
     it("should throw for unknown peer", () => {
-      assert.throws(() => namePeer("unknown", "Name"), /Peer not found/);
+      expect(() => trust.namePeer("unknown", "Name")).toThrow(/Peer not found/);
     });
   });
 
   describe("revokePeer", () => {
-    it("should revoke an active grant", () => {
-      grantAccess("revoke-key", ["s1"], ["message"]);
+    it("should revoke an active grant", async () => {
+      const { identity } = await freshModules();
+      trust.grantAccess("revoke-key", ["s1"], ["message"]);
 
-      revokePeer(shortKey("revoke-key"));
+      trust.revokePeer(identity.shortKey("revoke-key"));
 
-      const grants = getAccessGrants();
-      const grant = grants.find(g => g.peerKey === "revoke-key");
-      assert.ok(grant);
-      assert.strictEqual(grant.revoked, true);
+      const grants = trust.getAccessGrants();
+      const grant = grants.find((g: AccessGrant) => g.peerKey === "revoke-key");
+      expect(grant).toBeTruthy();
+      expect(grant!.revoked).toBe(true);
     });
 
     it("should throw for unknown peer", () => {
-      assert.throws(() => revokePeer("nonexistent"), /No active grant found/);
+      expect(() => trust.revokePeer("nonexistent")).toThrow(/No active grant found/);
     });
 
-    it("should not revoke already revoked grant", () => {
-      grantAccess("double-revoke-key", ["s1"], ["message"]);
-      revokePeer(shortKey("double-revoke-key"));
+    it("should not revoke already revoked grant", async () => {
+      const { identity } = await freshModules();
+      trust.grantAccess("double-revoke-key", ["s1"], ["message"]);
+      trust.revokePeer(identity.shortKey("double-revoke-key"));
 
       // Second revoke should throw because the grant is already revoked
-      assert.throws(() => revokePeer(shortKey("double-revoke-key")), /No active grant found/);
+      expect(() => trust.revokePeer(identity.shortKey("double-revoke-key"))).toThrow(/No active grant found/);
     });
   });
 });
 
 describe("Authorization", () => {
   let cleanup: (() => void) | undefined;
+  let trust: any;
+  let identity: any;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     cleanup = useTestDataDir();
+    ({ trust, identity } = await freshModules());
   });
 
   afterEach(() => {
@@ -291,23 +292,23 @@ describe("Authorization", () => {
 
   describe("isAuthorized", () => {
     it("should authorize peer with matching session", () => {
-      grantAccess("auth-key", ["session-1"], ["message"]);
-      assert.strictEqual(isAuthorized("auth-key", "session-1"), true);
+      trust.grantAccess("auth-key", ["session-1"], ["message"]);
+      expect(trust.isAuthorized("auth-key", "session-1")).toBe(true);
     });
 
     it("should authorize peer with wildcard session", () => {
-      grantAccess("wildcard-key", ["*"], ["message"]);
-      assert.strictEqual(isAuthorized("wildcard-key", "any-session"), true);
+      trust.grantAccess("wildcard-key", ["*"], ["message"]);
+      expect(trust.isAuthorized("wildcard-key", "any-session")).toBe(true);
     });
 
     it("should authorize peer with inject capability", () => {
-      grantAccess("inject-key", ["s1"], ["inject"]);
-      assert.strictEqual(isAuthorized("inject-key", "s1"), true);
+      trust.grantAccess("inject-key", ["s1"], ["inject"]);
+      expect(trust.isAuthorized("inject-key", "s1")).toBe(true);
     });
 
     it("should deny peer with wrong session", () => {
-      grantAccess("wrong-session-key", ["session-1"], ["message"]);
-      assert.strictEqual(isAuthorized("wrong-session-key", "session-2"), false);
+      trust.grantAccess("wrong-session-key", ["session-1"], ["message"]);
+      expect(trust.isAuthorized("wrong-session-key", "session-2")).toBe(false);
     });
 
     it("should deny peer with no matching capability", () => {
@@ -319,20 +320,20 @@ describe("Authorization", () => {
         caps: ["other"],
         created: Date.now(),
       }];
-      saveAccessGrants(grants);
+      trust.saveAccessGrants(grants);
 
-      assert.strictEqual(isAuthorized("nocap-key", "s1"), false);
+      expect(trust.isAuthorized("nocap-key", "s1")).toBe(false);
     });
 
     it("should deny revoked peer", () => {
-      grantAccess("revoked-key", ["s1"], ["message"]);
-      revokePeer(shortKey("revoked-key"));
+      trust.grantAccess("revoked-key", ["s1"], ["message"]);
+      trust.revokePeer(identity.shortKey("revoked-key"));
 
-      assert.strictEqual(isAuthorized("revoked-key", "s1"), false);
+      expect(trust.isAuthorized("revoked-key", "s1")).toBe(false);
     });
 
     it("should deny unknown peer", () => {
-      assert.strictEqual(isAuthorized("unknown-key", "s1"), false);
+      expect(trust.isAuthorized("unknown-key", "s1")).toBe(false);
     });
 
     it("should authorize old key in grace period via key history", () => {
@@ -349,9 +350,9 @@ describe("Authorization", () => {
           validUntil: Date.now() + 100000, // Still valid
         }],
       }];
-      saveAccessGrants(grants);
+      trust.saveAccessGrants(grants);
 
-      assert.strictEqual(isAuthorized("old-key", "s1"), true);
+      expect(trust.isAuthorized("old-key", "s1")).toBe(true);
     });
 
     it("should deny old key past grace period", () => {
@@ -368,19 +369,19 @@ describe("Authorization", () => {
           validUntil: Date.now() - 100000, // Expired
         }],
       }];
-      saveAccessGrants(grants);
+      trust.saveAccessGrants(grants);
 
-      assert.strictEqual(isAuthorized("expired-key", "s1"), false);
+      expect(trust.isAuthorized("expired-key", "s1")).toBe(false);
     });
   });
 
   describe("getGrantForPeer", () => {
     it("should find grant by current key", () => {
-      grantAccess("grant-peer-key", ["s1"], ["message"]);
-      const grant = getGrantForPeer("grant-peer-key");
+      trust.grantAccess("grant-peer-key", ["s1"], ["message"]);
+      const grant = trust.getGrantForPeer("grant-peer-key");
 
-      assert.ok(grant);
-      assert.strictEqual(grant.peerKey, "grant-peer-key");
+      expect(grant).toBeTruthy();
+      expect(grant!.peerKey).toBe("grant-peer-key");
     });
 
     it("should find grant by historical key", () => {
@@ -396,32 +397,34 @@ describe("Authorization", () => {
           validFrom: Date.now() - 100000,
         }],
       }];
-      saveAccessGrants(grants);
+      trust.saveAccessGrants(grants);
 
-      const grant = getGrantForPeer("historical-key");
-      assert.ok(grant);
-      assert.strictEqual(grant.peerKey, "current-key");
+      const grant = trust.getGrantForPeer("historical-key");
+      expect(grant).toBeTruthy();
+      expect(grant!.peerKey).toBe("current-key");
     });
 
     it("should skip revoked grants for current key", () => {
-      grantAccess("skip-revoked-key", ["s1"], ["message"]);
-      revokePeer(shortKey("skip-revoked-key"));
+      trust.grantAccess("skip-revoked-key", ["s1"], ["message"]);
+      trust.revokePeer(identity.shortKey("skip-revoked-key"));
 
-      const grant = getGrantForPeer("skip-revoked-key");
-      assert.strictEqual(grant, undefined);
+      const grant = trust.getGrantForPeer("skip-revoked-key");
+      expect(grant).toBe(undefined);
     });
 
     it("should return undefined for unknown peer", () => {
-      assert.strictEqual(getGrantForPeer("unknown"), undefined);
+      expect(trust.getGrantForPeer("unknown")).toBe(undefined);
     });
   });
 });
 
 describe("Key Rotation Processing", () => {
   let cleanup: (() => void) | undefined;
+  let trust: any;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     cleanup = useTestDataDir();
+    ({ trust } = await freshModules());
   });
 
   afterEach(() => {
@@ -432,26 +435,29 @@ describe("Key Rotation Processing", () => {
   });
 
   describe("processPeerKeyRotation", () => {
-    it("should update grant key after valid rotation", () => {
-      initIdentity();
-      const identity = initIdentity(true);
+    it("should update grant key after valid rotation", async () => {
+      const { identity } = await freshModules();
+      ({ trust } = await freshModules());
+
+      identity.initIdentity();
+      const ident = identity.initIdentity(true);
 
       // Set up grant and peer with old key
-      grantAccess(identity.publicKey, ["s1"], ["message"], identity.encryptPub);
-      addPeer(identity.publicKey, ["s1"], ["message"], identity.encryptPub);
+      trust.grantAccess(ident.publicKey, ["s1"], ["message"], ident.encryptPub);
+      trust.addPeer(ident.publicKey, ["s1"], ["message"], ident.encryptPub);
 
       // Rotate
-      const { rotation } = rotateIdentity();
+      const { rotation } = identity.rotateIdentity();
 
-      const result = processPeerKeyRotation(rotation);
-      assert.strictEqual(result, true);
+      const result = trust.processPeerKeyRotation(rotation);
+      expect(result).toBe(true);
 
       // Grant should now have new key
-      const grants = getAccessGrants();
-      const updatedGrant = grants.find(g => g.peerKey === rotation.newSignPub);
-      assert.ok(updatedGrant, "Grant should have new key");
-      assert.ok(updatedGrant.keyHistory, "Should have key history");
-      assert.strictEqual(updatedGrant.keyHistory[0].publicKey, rotation.oldSignPub);
+      const grants = trust.getAccessGrants();
+      const updatedGrant = grants.find((g: AccessGrant) => g.peerKey === rotation.newSignPub);
+      expect(updatedGrant).toBeTruthy();
+      expect(updatedGrant!.keyHistory).toBeTruthy();
+      expect(updatedGrant!.keyHistory![0].publicKey).toBe(rotation.oldSignPub);
     });
 
     it("should return false for invalid rotation signature", () => {
@@ -467,25 +473,30 @@ describe("Key Rotation Processing", () => {
         sig: "invalid-sig",
       };
 
-      assert.strictEqual(processPeerKeyRotation(fakeRotation), false);
+      expect(trust.processPeerKeyRotation(fakeRotation)).toBe(false);
     });
 
-    it("should return false when no matching grant or peer exists", () => {
-      initIdentity();
-      const { rotation } = rotateIdentity();
+    it("should return false when no matching grant or peer exists", async () => {
+      const { identity } = await freshModules();
+      ({ trust } = await freshModules());
+
+      identity.initIdentity();
+      const { rotation } = identity.rotateIdentity();
 
       // No grants or peers set up for the old key
-      const result = processPeerKeyRotation(rotation);
-      assert.strictEqual(result, false);
+      const result = trust.processPeerKeyRotation(rotation);
+      expect(result).toBe(false);
     });
   });
 });
 
 describe("Key History Cleanup", () => {
   let cleanup: (() => void) | undefined;
+  let trust: any;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     cleanup = useTestDataDir();
+    ({ trust } = await freshModules());
   });
 
   afterEach(() => {
@@ -518,7 +529,7 @@ describe("Key History Cleanup", () => {
           },
         ],
       }];
-      saveAccessGrants(grants);
+      trust.saveAccessGrants(grants);
 
       const peers: Peer[] = [{
         id: "p-cleanup",
@@ -535,16 +546,16 @@ describe("Key History Cleanup", () => {
           },
         ],
       }];
-      savePeers(peers);
+      trust.savePeers(peers);
 
-      cleanupExpiredKeyHistory();
+      trust.cleanupExpiredKeyHistory();
 
-      const updatedGrants = getAccessGrants();
-      assert.strictEqual(updatedGrants[0].keyHistory?.length, 1);
-      assert.strictEqual(updatedGrants[0].keyHistory?.[0].publicKey, "valid-key");
+      const updatedGrants = trust.getAccessGrants();
+      expect(updatedGrants[0].keyHistory?.length).toBe(1);
+      expect(updatedGrants[0].keyHistory?.[0].publicKey).toBe("valid-key");
 
-      const updatedPeers = getPeers();
-      assert.strictEqual(updatedPeers[0].keyHistory?.length, 0);
+      const updatedPeers = trust.getPeers();
+      expect(updatedPeers[0].keyHistory?.length).toBe(0);
     });
 
     it("should not modify grants/peers without key history", () => {
@@ -555,13 +566,13 @@ describe("Key History Cleanup", () => {
         caps: ["message"],
         created: Date.now(),
       }];
-      saveAccessGrants(grants);
+      trust.saveAccessGrants(grants);
 
-      cleanupExpiredKeyHistory();
+      trust.cleanupExpiredKeyHistory();
 
-      const loaded = getAccessGrants();
-      assert.strictEqual(loaded.length, 1);
-      assert.strictEqual(loaded[0].keyHistory, undefined);
+      const loaded = trust.getAccessGrants();
+      expect(loaded.length).toBe(1);
+      expect(loaded[0].keyHistory).toBe(undefined);
     });
 
     it("should keep entries without validUntil", () => {
@@ -578,19 +589,19 @@ describe("Key History Cleanup", () => {
           // No validUntil - should be kept
         }],
       }];
-      saveAccessGrants(grants);
+      trust.saveAccessGrants(grants);
 
-      cleanupExpiredKeyHistory();
+      trust.cleanupExpiredKeyHistory();
 
-      const loaded = getAccessGrants();
-      assert.strictEqual(loaded[0].keyHistory?.length, 1);
+      const loaded = trust.getAccessGrants();
+      expect(loaded[0].keyHistory?.length).toBe(1);
     });
   });
 
   describe("getAllPeerKeys", () => {
     it("should return current key when no history", () => {
-      const keys = getAllPeerKeys("solo-key");
-      assert.deepStrictEqual(keys, ["solo-key"]);
+      const keys = trust.getAllPeerKeys("solo-key");
+      expect(keys).toEqual(["solo-key"]);
     });
 
     it("should include historical keys from grants", () => {
@@ -605,13 +616,13 @@ describe("Key History Cleanup", () => {
           { publicKey: "old-key-2", encryptPub: "enc", validFrom: Date.now() - 200000 },
         ],
       }];
-      saveAccessGrants(grants);
+      trust.saveAccessGrants(grants);
 
-      const keys = getAllPeerKeys("current-key");
-      assert.ok(keys.includes("current-key"));
-      assert.ok(keys.includes("old-key-1"));
-      assert.ok(keys.includes("old-key-2"));
-      assert.strictEqual(keys.length, 3);
+      const keys = trust.getAllPeerKeys("current-key");
+      expect(keys.includes("current-key")).toBeTruthy();
+      expect(keys.includes("old-key-1")).toBeTruthy();
+      expect(keys.includes("old-key-2")).toBeTruthy();
+      expect(keys.length).toBe(3);
     });
 
     it("should include historical keys from peers", () => {
@@ -625,11 +636,11 @@ describe("Key History Cleanup", () => {
           { publicKey: "peer-old-key", encryptPub: "enc", validFrom: Date.now() - 100000 },
         ],
       }];
-      savePeers(peers);
+      trust.savePeers(peers);
 
-      const keys = getAllPeerKeys("current-peer-key");
-      assert.ok(keys.includes("current-peer-key"));
-      assert.ok(keys.includes("peer-old-key"));
+      const keys = trust.getAllPeerKeys("current-peer-key");
+      expect(keys.includes("current-peer-key")).toBeTruthy();
+      expect(keys.includes("peer-old-key")).toBeTruthy();
     });
 
     it("should not duplicate keys", () => {
@@ -643,7 +654,7 @@ describe("Key History Cleanup", () => {
           { publicKey: "shared-old-key", encryptPub: "enc", validFrom: Date.now() },
         ],
       }];
-      saveAccessGrants(grants);
+      trust.saveAccessGrants(grants);
 
       const peers: Peer[] = [{
         id: "p-dup",
@@ -655,19 +666,21 @@ describe("Key History Cleanup", () => {
           { publicKey: "shared-old-key", encryptPub: "enc", validFrom: Date.now() },
         ],
       }];
-      savePeers(peers);
+      trust.savePeers(peers);
 
-      const keys = getAllPeerKeys("dup-key");
-      assert.strictEqual(keys.filter(k => k === "shared-old-key").length, 1);
+      const keys = trust.getAllPeerKeys("dup-key");
+      expect(keys.filter((k: string) => k === "shared-old-key").length).toBe(1);
     });
   });
 });
 
 describe("useInvite", () => {
   let cleanup: (() => void) | undefined;
+  let trust: any;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     cleanup = useTestDataDir();
+    ({ trust } = await freshModules());
   });
 
   afterEach(() => {
@@ -677,49 +690,57 @@ describe("useInvite", () => {
     }
   });
 
-  it("should add a peer from a valid invite token", () => {
-    const issuer = initIdentity();
-    const token = createInviteToken("target-pubkey", ["session-1"]);
+  it("should add a peer from a valid invite token", async () => {
+    const { identity } = await freshModules();
+    ({ trust } = await freshModules());
+    const issuer = identity.initIdentity();
+    const token = identity.createInviteToken("target-pubkey", ["session-1"]);
 
-    const peer = useInvite(token);
+    const peer = trust.useInvite(token);
 
-    assert.ok(peer.id);
-    assert.strictEqual(peer.publicKey, issuer.publicKey);
-    assert.deepStrictEqual(peer.caps, ["inject"]);
-    assert.ok(peer.sessions.includes("session-1"));
+    expect(peer.id).toBeTruthy();
+    expect(peer.publicKey).toBe(issuer.publicKey);
+    expect(peer.caps).toEqual(["inject"]);
+    expect(peer.sessions.includes("session-1")).toBeTruthy();
   });
 
-  it("should merge sessions for existing peer", () => {
-    const issuer = initIdentity();
-    const token1 = createInviteToken("target-pubkey", ["session-1"]);
-    const token2 = createInviteToken("target-pubkey", ["session-2"]);
+  it("should merge sessions for existing peer", async () => {
+    const { identity } = await freshModules();
+    ({ trust } = await freshModules());
+    identity.initIdentity();
+    const token1 = identity.createInviteToken("target-pubkey", ["session-1"]);
+    const token2 = identity.createInviteToken("target-pubkey", ["session-2"]);
 
-    useInvite(token1);
-    const peer = useInvite(token2);
+    trust.useInvite(token1);
+    const peer = trust.useInvite(token2);
 
-    assert.ok(peer.sessions.includes("session-1"));
-    assert.ok(peer.sessions.includes("session-2"));
+    expect(peer.sessions.includes("session-1")).toBeTruthy();
+    expect(peer.sessions.includes("session-2")).toBeTruthy();
   });
 
-  it("should create identity if none exists when using invite", () => {
+  it("should create identity if none exists when using invite", async () => {
+    const { identity } = await freshModules();
+    ({ trust } = await freshModules());
     // Create a separate identity to sign the token, then wipe it
-    initIdentity();
-    const token = createInviteToken("target-pubkey", ["session-1"]);
+    identity.initIdentity();
+    const token = identity.createInviteToken("target-pubkey", ["session-1"]);
 
     // Force remove identity file to simulate no identity
     rmSync(join(TEST_DATA_DIR, "identity.json"), { force: true });
 
-    const peer = useInvite(token);
-    assert.ok(peer.publicKey);
+    const peer = trust.useInvite(token);
+    expect(peer.publicKey).toBeTruthy();
   });
 
-  it("should persist the added peer", () => {
-    initIdentity();
-    const token = createInviteToken("target-pubkey", ["session-1"]);
+  it("should persist the added peer", async () => {
+    const { identity } = await freshModules();
+    ({ trust } = await freshModules());
+    identity.initIdentity();
+    const token = identity.createInviteToken("target-pubkey", ["session-1"]);
 
-    useInvite(token);
+    trust.useInvite(token);
 
-    const peers = getPeers();
-    assert.strictEqual(peers.length, 1);
+    const peers = trust.getPeers();
+    expect(peers.length).toBe(1);
   });
 });
