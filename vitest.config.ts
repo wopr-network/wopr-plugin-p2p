@@ -5,7 +5,7 @@ export default defineConfig({
     extensions: [".ts", ".js"],
     alias: [
       {
-        find: /^(\.\.?\/.*)\\.js$/,
+        find: /^(\.\.?\/.*)\.js$/,
         replacement: "$1",
       },
     ],
