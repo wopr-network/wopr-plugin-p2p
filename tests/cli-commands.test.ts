@@ -6,13 +6,14 @@
 
 import { describe, it, afterEach, beforeEach, expect, vi } from "vitest";
 import { mkdirSync, rmSync } from "node:fs";
-import { join } from "node:path";
 import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, describe, it } from "node:test";
 
-import { handleFriendCommand, friendCommand } from "../src/cli-commands.js";
+import { friendCommand, handleFriendCommand } from "../src/cli-commands.js";
 
 /** Temporary data directory for tests that touch friends state */
-const TEST_DATA_DIR = join(tmpdir(), "wopr-p2p-test-cli-" + process.pid);
+const TEST_DATA_DIR = join(tmpdir(), `wopr-p2p-test-cli-${process.pid}`);
 
 /** Create a mock WOPRPluginContext that captures log output */
 function createMockCtx() {

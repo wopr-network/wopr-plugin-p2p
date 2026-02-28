@@ -7,8 +7,9 @@
 
 import { describe, it, beforeEach, afterEach, expect, vi } from "vitest";
 import { mkdirSync, rmSync } from "node:fs";
-import { join } from "node:path";
 import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, beforeEach, describe, it } from "node:test";
 
 const TEST_DATA_DIR = join(tmpdir(), "wopr-p2p-test-identity-" + process.pid);
 
@@ -427,7 +428,7 @@ describe("Static Key Encryption", () => {
     it("should encrypt and decrypt between two identities", () => {
       // Set up identity A
       const identityA = initIdentity();
-      const encryptPubA = identityA.encryptPub;
+      const _encryptPubA = identityA.encryptPub;
 
       // Set up identity B (force overwrite)
       const identityB = initIdentity(true);
@@ -515,7 +516,7 @@ describe("Invite Tokens", () => {
         exp: Date.now() - 10000, // 10 seconds ago
         nonce: "test-nonce",
       });
-      const expiredToken = "wop1://" + Buffer.from(JSON.stringify(signed)).toString("base64url");
+      const expiredToken = `wop1://${Buffer.from(JSON.stringify(signed)).toString("base64url")}`;
 
       expect(() => parseInviteToken(expiredToken)).toThrow(/expired/);
     });
@@ -528,7 +529,7 @@ describe("Invite Tokens", () => {
       const encoded = token.slice(7);
       const data = JSON.parse(Buffer.from(encoded, "base64url").toString());
       data.sub = "tampered-target";
-      const tampered = "wop1://" + Buffer.from(JSON.stringify(data)).toString("base64url");
+      const tampered = `wop1://${Buffer.from(JSON.stringify(data)).toString("base64url")}`;
 
       expect(() => parseInviteToken(tampered)).toThrow(/Invalid signature/);
     });

@@ -7,9 +7,9 @@ import { describe, it, beforeEach, expect } from "vitest";
 import { getP2PStats, incrementStat, resetStats } from "../src/stats.js";
 
 describe("P2P Stats", () => {
-	beforeEach(() => {
-		resetStats();
-	});
+  beforeEach(() => {
+    resetStats();
+  });
 
 	it("should return zeros after reset", () => {
 		const stats = getP2PStats();
@@ -24,30 +24,30 @@ describe("P2P Stats", () => {
 		expect(stats.messagesRelayed).toBe(1);
 	});
 
-	it("should increment multiple stats independently", () => {
-		incrementStat("messagesRelayed", 5);
-		incrementStat("connectionsTotal", 3);
+  it("should increment multiple stats independently", () => {
+    incrementStat("messagesRelayed", 5);
+    incrementStat("connectionsTotal", 3);
 
 		const stats = getP2PStats();
 		expect(stats.messagesRelayed).toBe(5);
 		expect(stats.connectionsTotal).toBe(3);
 	});
 
-	it("should reset all stats to zero", () => {
-		incrementStat("messagesRelayed", 10);
-		incrementStat("connectionsTotal", 5);
+  it("should reset all stats to zero", () => {
+    incrementStat("messagesRelayed", 10);
+    incrementStat("connectionsTotal", 5);
 
-		resetStats();
+    resetStats();
 
 		const stats = getP2PStats();
 		expect(stats.messagesRelayed).toBe(0);
 		expect(stats.connectionsTotal).toBe(0);
 	});
 
-	it("should return a copy (not a reference)", () => {
-		const stats1 = getP2PStats();
-		incrementStat("messagesRelayed");
-		const stats2 = getP2PStats();
+  it("should return a copy (not a reference)", () => {
+    const stats1 = getP2PStats();
+    incrementStat("messagesRelayed");
+    const stats2 = getP2PStats();
 
 		expect(stats1.messagesRelayed).toBe(0);
 		expect(stats2.messagesRelayed).toBe(1);

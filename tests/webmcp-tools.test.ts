@@ -5,18 +5,17 @@
 import { describe, it, beforeEach, expect } from "vitest";
 
 import {
-	formatBytes,
-	formatUptime,
-	buildP2pStatusResponse,
-	buildListPeersResponse,
-	buildP2pStatsResponse,
+  buildListPeersResponse,
+  buildP2pStatsResponse,
+  buildP2pStatusResponse,
+  formatBytes,
+  formatUptime,
 } from "../src/webmcp-tools.js";
-import { resetStats, incrementStat } from "../src/stats.js";
 
 describe("WebMCP Tools", () => {
-	beforeEach(() => {
-		resetStats();
-	});
+  beforeEach(() => {
+    resetStats();
+  });
 
 	describe("formatBytes", () => {
 		it("should format bytes", () => {
@@ -105,9 +104,9 @@ describe("WebMCP Tools", () => {
 			expect(typeof response.startedAt).toBe("string");
 		});
 
-		it("should reflect incremented stats", () => {
-			incrementStat("messagesRelayed", 42);
-			incrementStat("connectionsTotal", 3);
+    it("should reflect incremented stats", () => {
+      incrementStat("messagesRelayed", 42);
+      incrementStat("connectionsTotal", 3);
 
 			const response = buildP2pStatsResponse();
 			expect(response.messagesRelayed).toBe(42);

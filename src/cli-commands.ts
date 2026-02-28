@@ -32,121 +32,105 @@ function _parseFlags(args: string[]): {
 	flags: Record<string, string | boolean>;
 	positional: string[];
 } {
-	const flags: Record<string, string | boolean> = {};
-	const positional: string[] = [];
+  const flags: Record<string, string | boolean> = {};
+  const positional: string[] = [];
 
-	for (let i = 0; i < args.length; i++) {
-		if (args[i].startsWith("--")) {
-			const key = args[i].slice(2);
-			if (i + 1 < args.length && !args[i + 1].startsWith("--")) {
-				flags[key] = args[++i];
-			} else {
-				flags[key] = true;
-			}
-		} else {
-			positional.push(args[i]);
-		}
-	}
+  for (let i = 0; i < args.length; i++) {
+    if (args[i].startsWith("--")) {
+      const key = args[i].slice(2);
+      if (i + 1 < args.length && !args[i + 1].startsWith("--")) {
+        flags[key] = args[++i];
+      } else {
+        flags[key] = true;
+      }
+    } else {
+      positional.push(args[i]);
+    }
+  }
 
-	return { flags, positional };
+  return { flags, positional };
 }
 
 /**
  * Handle the `wopr friend` command
  */
-export async function handleFriendCommand(
-	ctx: WOPRPluginContext,
-	args: string[],
-): Promise<void> {
-	const subcommand = args[0];
-	const subArgs = args.slice(1);
+export async function handleFriendCommand(ctx: WOPRPluginContext, args: string[]): Promise<void> {
+  const subcommand = args[0];
+  const subArgs = args.slice(1);
 
-	switch (subcommand) {
-		case "list":
-			await handleFriendList(ctx);
-			break;
+  switch (subcommand) {
+    case "list":
+      await handleFriendList(ctx);
+      break;
 
-		case "request":
-			await handleFriendRequest(ctx, subArgs);
-			break;
+    case "request":
+      await handleFriendRequest(ctx, subArgs);
+      break;
 
-		case "accept":
-			await handleFriendAccept(ctx, subArgs);
-			break;
+    case "accept":
+      await handleFriendAccept(ctx, subArgs);
+      break;
 
-		case "pending":
-			await handleFriendPending(ctx);
-			break;
+    case "pending":
+      await handleFriendPending(ctx);
+      break;
 
-		case "remove":
-		case "unfriend":
-			await handleFriendRemove(ctx, subArgs);
-			break;
+    case "remove":
+    case "unfriend":
+      await handleFriendRemove(ctx, subArgs);
+      break;
 
-		case "grant":
-			await handleFriendGrant(ctx, subArgs);
-			break;
+    case "grant":
+      await handleFriendGrant(ctx, subArgs);
+      break;
 
-		case "revoke":
-			await handleFriendRevoke(ctx, subArgs);
-			break;
+    case "revoke":
+      await handleFriendRevoke(ctx, subArgs);
+      break;
 
-		case "auto-accept":
-			await handleAutoAccept(ctx, subArgs);
-			break;
+    case "auto-accept":
+      await handleAutoAccept(ctx, subArgs);
+      break;
 
-		default:
-			showFriendHelp(ctx);
-	}
+    default:
+      showFriendHelp(ctx);
+  }
 }
 
 function showFriendHelp(_ctx: WOPRPluginContext): void {
 	console.log(`
 wopr friend - Manage P2P friends
 
-Usage:
-  wopr friend list                       List all friends
-  wopr friend pending                    Show pending friend requests
-  wopr friend accept <name>              Accept a pending friend request
-  wopr friend remove <name>              Remove a friend
-  wopr friend grant <name> <cap>         Grant capability to a friend
-  wopr friend revoke <name> <cap>        Revoke capability from a friend
-  wopr friend auto-accept                List auto-accept rules
-  wopr friend auto-accept add <pattern>  Add auto-accept rule
-  wopr friend auto-accept remove <pattern>  Remove auto-accept rule
+async function handleFriendList(_ctx: WOPRPluginContext): Promise<void> {
+  const friends = getFriends();
 
-Capabilities:
-  message      Send to conversation (no AI response)
-  inject       Get AI response (sandboxed)
+  if (friends.length === 0) {
+    return;
+  }
 
-Examples:
-  wopr friend list
-  wopr friend accept hope
-  wopr friend grant hope inject
-  wopr friend auto-accept add "*"
-`);
+  for (const f of friends) {
+    const _name = f.name.padEnd(17);
+    const _pubkey = shortKey(f.publicKey).padEnd(10);
+    const _caps = f.caps.join(",").padEnd(17);
+  }
 }
 
 async function handleFriendList(_ctx: WOPRPluginContext): Promise<void> {
 	const friends = getFriends();
 
-	if (friends.length === 0) {
-		console.log(
-			"No friends yet. Use /friend @username in Discord to send a friend request.",
-		);
-		return;
-	}
+async function handleFriendAccept(_ctx: WOPRPluginContext, args: string[]): Promise<void> {
+  if (!args[0]) {
+    console.error("Usage: wopr friend accept <name>");
+    return;
+  }
 
-	console.log(`Friends (${friends.length}):`);
-	console.log("Name              | Pubkey     | Caps              | Session");
-	console.log("------------------|------------|-------------------|--------");
+  const from = args[0].startsWith("@") ? args[0].slice(1) : args[0];
 
-	for (const f of friends) {
-		const name = f.name.padEnd(17);
-		const pubkey = shortKey(f.publicKey).padEnd(10);
-		const caps = f.caps.join(",").padEnd(17);
-		console.log(`${name}| ${pubkey} | ${caps} | ${f.sessionName}`);
-	}
+  const result = acceptPendingRequest(from);
+  if (!result) {
+    console.error(`No pending friend request from "${from}"`);
+    return;
+  }
 }
 
 async function handleFriendRequest(
@@ -158,15 +142,21 @@ async function handleFriendRequest(
 	console.log(`
 To send a friend request, use the /friend command in a channel:
 
-  In Discord: /friend @username
-  In Slack:   /friend @username
+  if (incoming.length === 0 && outgoing.length === 0) {
+    return;
+  }
 
-The friend request will be posted as a signed message in the channel.
-The other agent will see it and can accept it.
+  if (incoming.length > 0) {
+    for (const p of incoming) {
+      const _age = Math.round((Date.now() - p.receivedAt) / 60000);
+    }
+  }
 
-Note: CLI friend requests require both parties to be in the same channel
-for the handshake to complete.
-`);
+  if (outgoing.length > 0) {
+    for (const p of outgoing) {
+      const _age = Math.round((Date.now() - p.sentAt) / 60000);
+    }
+  }
 }
 
 async function handleFriendAccept(
@@ -178,52 +168,32 @@ async function handleFriendAccept(
 		return;
 	}
 
-	const from = args[0].startsWith("@") ? args[0].slice(1) : args[0];
+  const name = args[0].startsWith("@") ? args[0].slice(1) : args[0];
 
-	const result = acceptPendingRequest(from);
-	if (!result) {
-		console.error(`No pending friend request from "${from}"`);
-		console.log("Use 'wopr friend pending' to see pending requests.");
-		return;
-	}
-
-	console.log(`Accepted friend request from ${from}`);
-	console.log(`Session: ${result.friend.sessionName}`);
-	console.log(`Caps: ${result.friend.caps.join(", ")}`);
-	console.log("");
-	console.log(
-		"Note: The accept message needs to be posted to the channel where",
-	);
-	console.log("the request was received. Use /accept in that channel.");
+  if (removeFriend(name)) {
+  } else {
+    console.error(`Friend not found: ${name}`);
+  }
 }
 
 async function handleFriendPending(_ctx: WOPRPluginContext): Promise<void> {
 	const incoming = getPendingIncomingRequests();
 	const outgoing = getPendingOutgoingRequests();
 
-	if (incoming.length === 0 && outgoing.length === 0) {
-		console.log("No pending friend requests.");
-		return;
-	}
+  const name = args[0].startsWith("@") ? args[0].slice(1) : args[0];
+  const cap = args[1];
 
-	if (incoming.length > 0) {
-		console.log(`Incoming requests (${incoming.length}):`);
-		for (const p of incoming) {
-			const age = Math.round((Date.now() - p.receivedAt) / 60000);
-			console.log(
-				`  @${p.request.from} (${shortKey(p.request.pubkey)}) - ${age}m ago via ${p.channel}`,
-			);
-		}
-		console.log("");
-	}
+  const validCaps = ["message", "inject"];
+  if (!validCaps.includes(cap)) {
+    console.error(`Invalid capability: ${cap}`);
+    return;
+  }
 
-	if (outgoing.length > 0) {
-		console.log(`Outgoing requests (${outgoing.length}):`);
-		for (const p of outgoing) {
-			const age = Math.round((Date.now() - p.sentAt) / 60000);
-			console.log(`  @${p.request.to} - ${age}m ago via ${p.channel}`);
-		}
-	}
+  if (grantFriendCap(name, cap)) {
+    const _friend = getFriend(name);
+  } else {
+    console.error(`Friend not found: ${name}`);
+  }
 }
 
 async function handleFriendRemove(
@@ -235,13 +205,14 @@ async function handleFriendRemove(
 		return;
 	}
 
-	const name = args[0].startsWith("@") ? args[0].slice(1) : args[0];
+  const name = args[0].startsWith("@") ? args[0].slice(1) : args[0];
+  const cap = args[1];
 
-	if (removeFriend(name)) {
-		console.log(`Removed friend: ${name}`);
-	} else {
-		console.error(`Friend not found: ${name}`);
-	}
+  if (revokeFriendCap(name, cap)) {
+    const _friend = getFriend(name);
+  } else {
+    console.error(`Friend not found or cap not granted: ${name}`);
+  }
 }
 
 async function handleFriendGrant(
@@ -254,24 +225,26 @@ async function handleFriendGrant(
 		return;
 	}
 
-	const name = args[0].startsWith("@") ? args[0].slice(1) : args[0];
-	const cap = args[1];
+  if (!action || action === "list") {
+    const rules = getAutoAcceptRules();
+    if (rules.length === 0) {
+    } else {
+      for (const r of rules) {
+        const _added = new Date(r.addedAt).toLocaleDateString();
+      }
+    }
+    return;
+  }
 
-	const validCaps = ["message", "inject"];
-	if (!validCaps.includes(cap)) {
-		console.error(`Invalid capability: ${cap}`);
-		console.log(`Valid: ${validCaps.join(", ")}`);
-		return;
-	}
+  if (action === "add") {
+    if (!pattern) {
+      console.error("Usage: wopr friend auto-accept add <pattern>");
+      return;
+    }
 
-	if (grantFriendCap(name, cap)) {
-		const friend = getFriend(name);
-		console.log(`Granted ${cap} to ${name}`);
-		console.log(`Current caps: ${friend?.caps.join(", ")}`);
-	} else {
-		console.error(`Friend not found: ${name}`);
-	}
-}
+    addAutoAcceptRule(pattern);
+    return;
+  }
 
 async function handleFriendRevoke(
 	_ctx: WOPRPluginContext,
@@ -282,8 +255,12 @@ async function handleFriendRevoke(
 		return;
 	}
 
-	const name = args[0].startsWith("@") ? args[0].slice(1) : args[0];
-	const cap = args[1];
+    if (removeAutoAcceptRule(pattern)) {
+    } else {
+      console.error(`Rule not found: "${pattern}"`);
+    }
+    return;
+  }
 
 	if (revokeFriendCap(name, cap)) {
 		const friend = getFriend(name);
@@ -355,9 +332,8 @@ async function handleAutoAccept(
  * Plugin command definition for export
  */
 export const friendCommand = {
-	name: "friend",
-	description: "Manage P2P friends",
-	usage:
-		"wopr friend [list|pending|accept|remove|grant|revoke|auto-accept] [args]",
-	handler: handleFriendCommand,
+  name: "friend",
+  description: "Manage P2P friends",
+  usage: "wopr friend [list|pending|accept|remove|grant|revoke|auto-accept] [args]",
+  handler: handleFriendCommand,
 };

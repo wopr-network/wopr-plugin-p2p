@@ -3,30 +3,27 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { shortKey } from "./identity.js";
 import type {
-	P2PAccessGrantRow,
-	P2PAutoAcceptRow,
-	P2PFriendRow,
-	P2PIdentityRow,
-	P2PPeerRow,
-	P2PPendingRequestRow,
+  P2PAccessGrantRow,
+  P2PAutoAcceptRow,
+  P2PFriendRow,
+  P2PIdentityRow,
+  P2PPeerRow,
+  P2PPendingRequestRow,
 } from "./storage-schema.js";
 import type { StorageApi } from "./types.js";
 
 // Resolve data directory (same logic as trust.ts/friends.ts)
 function getDataDir(): string {
-	return existsSync("/data") ? "/data/p2p" : join(homedir(), ".wopr", "p2p");
+  return existsSync("/data") ? "/data/p2p" : join(homedir(), ".wopr", "p2p");
 }
 
 /**
  * Migrate all JSON files to SQL via the Storage API.
  * Called once during plugin init when storage is available but tables are empty.
  */
-export async function migrateJsonToSql(
-	storage: StorageApi,
-	log: (msg: string) => void,
-): Promise<void> {
-	const dataDir = getDataDir();
-	let migrated = 0;
+export async function migrateJsonToSql(storage: StorageApi, log: (msg: string) => void): Promise<void> {
+  const dataDir = getDataDir();
+  let migrated = 0;
 
 	// 1. Migrate identity.json
 	const identityFile = join(dataDir, "identity.json");
@@ -121,75 +118,69 @@ export async function migrateJsonToSql(
 		}
 	}
 
-	// 4. Migrate friends.json (4 arrays -> 3 tables)
-	const friendsFile = join(dataDir, "friends.json");
-	if (existsSync(friendsFile)) {
-		try {
-			const state = JSON.parse(readFileSync(friendsFile, "utf-8"));
+  // 4. Migrate friends.json (4 arrays -> 3 tables)
+  const friendsFile = join(dataDir, "friends.json");
+  if (existsSync(friendsFile)) {
+    try {
+      const state = JSON.parse(readFileSync(friendsFile, "utf-8"));
 
-			// 4a. Friends
-			const friendsRepo = storage.getRepository<P2PFriendRow>("p2p", "friends");
-			for (const friend of state.friends || []) {
-				const existing = await friendsRepo.findFirst({
-					publicKey: friend.publicKey,
-				});
-				if (!existing) {
-					await friendsRepo.insert({
-						id: shortKey(friend.publicKey),
-						name: friend.name,
-						publicKey: friend.publicKey,
-						encryptPub: friend.encryptPub,
-						sessionName: friend.sessionName,
-						addedAt: friend.addedAt,
-						caps: friend.caps,
-						channel: friend.channel,
-					});
-				}
-			}
+      // 4a. Friends
+      const friendsRepo = storage.getRepository<P2PFriendRow>("p2p", "friends");
+      for (const friend of state.friends || []) {
+        const existing = await friendsRepo.findFirst({
+          publicKey: friend.publicKey,
+        });
+        if (!existing) {
+          await friendsRepo.insert({
+            id: shortKey(friend.publicKey),
+            name: friend.name,
+            publicKey: friend.publicKey,
+            encryptPub: friend.encryptPub,
+            sessionName: friend.sessionName,
+            addedAt: friend.addedAt,
+            caps: friend.caps,
+            channel: friend.channel,
+          });
+        }
+      }
 
-			// 4b. Pending requests (incoming + outgoing merged into one table)
-			const pendingRepo = storage.getRepository<P2PPendingRequestRow>(
-				"p2p",
-				"pending_requests",
-			);
-			for (const pending of state.pendingIn || []) {
-				await pendingRepo.insert({
-					id: `in-${pending.request.sig.slice(0, 16)}`,
-					direction: "in",
-					requestJson: JSON.stringify(pending.request),
-					timestamp: pending.receivedAt,
-					channel: pending.channel,
-					channelId: pending.channelId,
-				});
-			}
-			for (const pending of state.pendingOut || []) {
-				await pendingRepo.insert({
-					id: `out-${pending.request.sig.slice(0, 16)}`,
-					direction: "out",
-					requestJson: JSON.stringify(pending.request),
-					timestamp: pending.sentAt,
-					channel: pending.channel,
-					channelId: pending.channelId,
-				});
-			}
+      // 4b. Pending requests (incoming + outgoing merged into one table)
+      const pendingRepo = storage.getRepository<P2PPendingRequestRow>("p2p", "pending_requests");
+      for (const pending of state.pendingIn || []) {
+        await pendingRepo.insert({
+          id: `in-${pending.request.sig.slice(0, 16)}`,
+          direction: "in",
+          requestJson: JSON.stringify(pending.request),
+          timestamp: pending.receivedAt,
+          channel: pending.channel,
+          channelId: pending.channelId,
+        });
+      }
+      for (const pending of state.pendingOut || []) {
+        await pendingRepo.insert({
+          id: `out-${pending.request.sig.slice(0, 16)}`,
+          direction: "out",
+          requestJson: JSON.stringify(pending.request),
+          timestamp: pending.sentAt,
+          channel: pending.channel,
+          channelId: pending.channelId,
+        });
+      }
 
-			// 4c. Auto-accept rules
-			const autoAcceptRepo = storage.getRepository<P2PAutoAcceptRow>(
-				"p2p",
-				"auto_accept",
-			);
-			for (const rule of state.autoAccept || []) {
-				const existing = await autoAcceptRepo.findFirst({
-					pattern: rule.pattern,
-				});
-				if (!existing) {
-					await autoAcceptRepo.insert({
-						id: rule.pattern,
-						pattern: rule.pattern,
-						addedAt: rule.addedAt,
-					});
-				}
-			}
+      // 4c. Auto-accept rules
+      const autoAcceptRepo = storage.getRepository<P2PAutoAcceptRow>("p2p", "auto_accept");
+      for (const rule of state.autoAccept || []) {
+        const existing = await autoAcceptRepo.findFirst({
+          pattern: rule.pattern,
+        });
+        if (!existing) {
+          await autoAcceptRepo.insert({
+            id: rule.pattern,
+            pattern: rule.pattern,
+            addedAt: rule.addedAt,
+          });
+        }
+      }
 
 			const total =
 				(state.friends?.length || 0) +
@@ -204,9 +195,9 @@ export async function migrateJsonToSql(
 		}
 	}
 
-	if (migrated > 0) {
-		log(`Migration complete: ${migrated} JSON files migrated to SQL`);
-	} else {
-		log(`No JSON files to migrate (fresh install or already migrated)`);
-	}
+  if (migrated > 0) {
+    log(`Migration complete: ${migrated} JSON files migrated to SQL`);
+  } else {
+    log(`No JSON files to migrate (fresh install or already migrated)`);
+  }
 }

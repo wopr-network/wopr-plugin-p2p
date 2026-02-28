@@ -8,55 +8,57 @@
 import { describe, it, afterEach, beforeEach, expect } from "vitest";
 import http from "node:http";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import http from "node:http";
 import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, beforeEach, describe, it } from "node:test";
 
 import { _startUIServer as startUIServer } from "../src/index.js";
 
 // Simple HTTP fetch helper
 function fetchUrl(url: string): Promise<{ status: number; body: string }> {
-	return new Promise((resolve, reject) => {
-		http
-			.get(url, (res) => {
-				let data = "";
-				res.on("data", (chunk) => (data += chunk));
-				res.on("end", () => resolve({ status: res.statusCode!, body: data }));
-			})
-			.on("error", reject);
-	});
+  return new Promise((resolve, reject) => {
+    http
+      .get(url, (res) => {
+        let data = "";
+        res.on("data", (chunk) => (data += chunk));
+        res.on("end", () => resolve({ status: res.statusCode!, body: data }));
+      })
+      .on("error", reject);
+  });
 }
 
 describe("UI Server Path Traversal Protection (WOP-619)", () => {
-	let server: http.Server | null = null;
-	let port: number;
-	let pluginDir: string;
-	const testId = `wopr-p2p-uitest-${process.pid}`;
+  let server: http.Server | null = null;
+  let port: number;
+  let pluginDir: string;
+  const testId = `wopr-p2p-uitest-${process.pid}`;
 
-	beforeEach(async () => {
-		pluginDir = join(tmpdir(), testId);
-		mkdirSync(pluginDir, { recursive: true });
+  beforeEach(async () => {
+    pluginDir = join(tmpdir(), testId);
+    mkdirSync(pluginDir, { recursive: true });
 
-		// Create some test files
-		writeFileSync(join(pluginDir, "ui.js"), `console.log("p2p ui");`);
-		writeFileSync(join(pluginDir, "style.css"), `body { color: red; }`);
-		writeFileSync(join(pluginDir, "index.html"), `<html><body>P2P</body></html>`);
-		writeFileSync(join(pluginDir, "secret.json"), `{"token":"super-secret"}`);
-		writeFileSync(join(pluginDir, "malware.exe"), `MZ-binary`);
+    // Create some test files
+    writeFileSync(join(pluginDir, "ui.js"), `console.log("p2p ui");`);
+    writeFileSync(join(pluginDir, "style.css"), `body { color: red; }`);
+    writeFileSync(join(pluginDir, "index.html"), `<html><body>P2P</body></html>`);
+    writeFileSync(join(pluginDir, "secret.json"), `{"token":"super-secret"}`);
+    writeFileSync(join(pluginDir, "malware.exe"), `MZ-binary`);
 
-		// Start server on an ephemeral port (0 = OS assigns) and wait for listen
-		server = startUIServer(0, pluginDir);
-		await new Promise<void>((resolve) => server!.once("listening", resolve));
-		const addr = server.address() as { port: number };
-		port = addr.port;
-	});
+    // Start server on an ephemeral port (0 = OS assigns) and wait for listen
+    server = startUIServer(0, pluginDir);
+    await new Promise<void>((resolve) => server?.once("listening", resolve));
+    const addr = server.address() as { port: number };
+    port = addr.port;
+  });
 
-	afterEach(async () => {
-		if (server) {
-			await new Promise<void>((resolve) => server!.close(() => resolve()));
-			server = null;
-		}
-		rmSync(pluginDir, { recursive: true, force: true });
-	});
+  afterEach(async () => {
+    if (server) {
+      await new Promise<void>((resolve) => server?.close(() => resolve()));
+      server = null;
+    }
+    rmSync(pluginDir, { recursive: true, force: true });
+  });
 
 	it("should serve ui.js from plugin directory on GET /", async () => {
 		const res = await fetchUrl(`http://127.0.0.1:${port}/`);
