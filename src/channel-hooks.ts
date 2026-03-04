@@ -34,6 +34,7 @@ import {
   verifyFriendRequest,
 } from "./friends.js";
 import { getIdentity, shortKey } from "./identity.js";
+import { syncFriendToSecurity } from "./security-integration.js";
 
 interface ChannelNotificationPayload {
   type: string;
@@ -478,7 +479,7 @@ function registerFriendRequestParser(
         // Queue for manual approval
         queueForApproval(request, msgCtx.channelType, msgCtx.channel);
 
-        // Notify all channel providers that support notifications
+        // Notify the channel provider where this request arrived
         if (ctx.getChannelProviders) {
           const payload: ChannelNotificationPayload = {
             type: "friend-request",
@@ -489,16 +490,24 @@ function registerFriendRequestParser(
             channelName: msgCtx.channel,
           };
 
+          // Capture primitives now; callbacks may run after the message context expires
+          const sourceChannelType = msgCtx.channelType;
+          const sourceChannel = msgCtx.channel;
+          const botUsername = msgCtx.getBotUsername();
+          const replyFn = msgCtx.reply.bind(msgCtx);
+
           const callbacks: ChannelNotificationCallbacks = {
             onAccept: async () => {
               const result = acceptPendingRequest(request.from);
               if (result) {
-                const accept = createFriendAccept(result.request, msgCtx.getBotUsername());
-                completeFriendship(
-                  { ...accept, pubkey: request.pubkey, encryptPub: request.encryptPub } as any,
-                  msgCtx.channelType,
-                );
-                await msgCtx.reply(formatFriendAccept(accept));
+                const accept = createFriendAccept(result.request, botUsername);
+                // Security sync must happen here; acceptPendingRequest does not do it
+                try {
+                  syncFriendToSecurity(result.friend);
+                } catch {
+                  // Security sync is optional — may not have WOPR security module
+                }
+                await replyFn(formatFriendAccept(accept));
                 ctx.log.info(`[p2p] Friend request from @${request.from} accepted via notification`);
               }
             },
@@ -508,10 +517,13 @@ function registerFriendRequestParser(
             },
           };
 
+          // Only send to the provider that received the request — other providers
+          // do not know this channelId and would misroute the notification.
           for (const provider of ctx.getChannelProviders() as ChannelProviderWithNotification[]) {
+            if (provider.id !== sourceChannelType) continue;
             if (provider.sendNotification) {
               try {
-                await provider.sendNotification(msgCtx.channel, payload, callbacks);
+                await provider.sendNotification(sourceChannel, payload, callbacks);
                 ctx.log.info(`[p2p] Sent notification to ${provider.id} for friend request from @${request.from}`);
               } catch (err) {
                 ctx.log.warn(`[p2p] Failed to send notification to ${provider.id}: ${err instanceof Error ? err.message : String(err)}`);
