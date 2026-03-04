@@ -14,6 +14,7 @@ import {
   completeFriendship,
   createFriendAccept,
   createFriendRequest,
+  denyPendingRequest,
   formatFriendAccept,
   formatFriendRequest,
   getAutoAcceptRules,
@@ -34,17 +35,28 @@ import {
 } from "./friends.js";
 import { getIdentity, shortKey } from "./identity.js";
 
-// Discord extension interface for sending owner notifications
-interface DiscordExtension {
-  sendFriendRequestNotification: (
-    requestFrom: string,
-    pubkey: string,
-    encryptPub: string,
+interface ChannelNotificationPayload {
+  type: string;
+  from?: string;
+  pubkey?: string;
+  encryptPub?: string;
+  signature?: string;
+  channelName?: string;
+  [key: string]: unknown;
+}
+
+interface ChannelNotificationCallbacks {
+  onAccept?: () => Promise<void>;
+  onDeny?: () => Promise<void>;
+}
+
+interface ChannelProviderWithNotification {
+  id: string;
+  sendNotification?: (
     channelId: string,
-    channelName: string,
-    signature: string,
-  ) => Promise<boolean>;
-  getBotUsername: () => string;
+    payload: ChannelNotificationPayload,
+    callbacks?: ChannelNotificationCallbacks,
+  ) => Promise<void>;
 }
 
 // Use WOPRPluginContext directly — shared type includes getChannelProviders() and getExtension()
@@ -466,20 +478,45 @@ function registerFriendRequestParser(
         // Queue for manual approval
         queueForApproval(request, msgCtx.channelType, msgCtx.channel);
 
-        // Try to send owner notification with buttons (Discord only)
-        if (msgCtx.channelType === "discord" && ctx.getExtension) {
-          const discordExt = ctx.getExtension<DiscordExtension>("discord");
-          if (discordExt) {
-            const channelName = msgCtx.channel; // Channel ID for Discord
-            await discordExt.sendFriendRequestNotification(
-              request.from,
-              request.pubkey,
-              request.encryptPub,
-              msgCtx.channel,
-              channelName,
-              request.sig,
-            );
-            ctx.log.info(`[p2p] Sent owner notification for friend request from @${request.from}`);
+        // Notify all channel providers that support notifications
+        if (ctx.getChannelProviders) {
+          const payload: ChannelNotificationPayload = {
+            type: "friend-request",
+            from: request.from,
+            pubkey: request.pubkey,
+            encryptPub: request.encryptPub,
+            signature: request.sig,
+            channelName: msgCtx.channel,
+          };
+
+          const callbacks: ChannelNotificationCallbacks = {
+            onAccept: async () => {
+              const result = acceptPendingRequest(request.from);
+              if (result) {
+                const accept = createFriendAccept(result.request, msgCtx.getBotUsername());
+                completeFriendship(
+                  { ...accept, pubkey: request.pubkey, encryptPub: request.encryptPub } as any,
+                  msgCtx.channelType,
+                );
+                await msgCtx.reply(formatFriendAccept(accept));
+                ctx.log.info(`[p2p] Friend request from @${request.from} accepted via notification`);
+              }
+            },
+            onDeny: async () => {
+              denyPendingRequest(request.from);
+              ctx.log.info(`[p2p] Friend request from @${request.from} denied via notification`);
+            },
+          };
+
+          for (const provider of ctx.getChannelProviders() as ChannelProviderWithNotification[]) {
+            if (provider.sendNotification) {
+              try {
+                await provider.sendNotification(msgCtx.channel, payload, callbacks);
+                ctx.log.info(`[p2p] Sent notification to ${provider.id} for friend request from @${request.from}`);
+              } catch (err) {
+                ctx.log.warn(`[p2p] Failed to send notification to ${provider.id}: ${err instanceof Error ? err.message : String(err)}`);
+              }
+            }
           }
         }
 
