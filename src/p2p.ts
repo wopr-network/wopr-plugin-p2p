@@ -72,16 +72,16 @@ async function performHandshake(
       reject(new Error("Handshake timeout"));
     }, 5000);
 
-		const hello = signMessage<Omit<P2PMessage, "sig">>({
-			v: PROTOCOL_VERSION,
-			type: "hello",
-			from: myPubKey,
-			versions: [PROTOCOL_VERSION, MIN_PROTOCOL_VERSION],
-			ephemeralPub: ephemeral.publicKey,
-			nonce: randomBytes(16).toString("hex"),
-			ts: Date.now(),
-		});
-		socket.write(`${JSON.stringify(hello)}\n`);
+    const hello = signMessage<Omit<P2PMessage, "sig">>({
+      v: PROTOCOL_VERSION,
+      type: "hello",
+      from: myPubKey,
+      versions: [PROTOCOL_VERSION, MIN_PROTOCOL_VERSION],
+      ephemeralPub: ephemeral.publicKey,
+      nonce: randomBytes(16).toString("hex"),
+      ts: Date.now(),
+    });
+    socket.write(`${JSON.stringify(hello)}\n`);
 
     let buffer = "";
     const onData = (data: Buffer) => {
@@ -120,16 +120,16 @@ async function performHandshake(
 
           const negotiatedVersion = Math.max(...commonVersions);
 
-					const ack = signMessage<Omit<P2PMessage, "sig">>({
-						v: PROTOCOL_VERSION,
-						type: "hello-ack",
-						from: myPubKey,
-						version: negotiatedVersion,
-						ephemeralPub: ephemeral.publicKey,
-						nonce: randomBytes(16).toString("hex"),
-						ts: Date.now(),
-					});
-					socket.write(`${JSON.stringify(ack)}\n`);
+          const ack = signMessage<Omit<P2PMessage, "sig">>({
+            v: PROTOCOL_VERSION,
+            type: "hello-ack",
+            from: myPubKey,
+            version: negotiatedVersion,
+            ephemeralPub: ephemeral.publicKey,
+            nonce: randomBytes(16).toString("hex"),
+            ts: Date.now(),
+          });
+          socket.write(`${JSON.stringify(ack)}\n`);
 
           clearTimeout(timeout);
           socket.removeListener("data", onData);
@@ -241,32 +241,29 @@ export async function sendP2PLog(
           ts: Date.now(),
         });
 
-				const logMsgStr = `${JSON.stringify(msg)}\n`;
-				socket.write(logMsgStr);
-				let buffer = "";
-				socket.on("data", async (data: Buffer) => {
-					buffer += data.toString();
-					if (buffer.includes("\n")) {
-						const line = buffer.split("\n")[0];
-						try {
-							const response: P2PMessage = JSON.parse(line);
-							if (response.type === "ack") {
-								await cleanup();
-								resolve({ code: EXIT_OK });
-							} else if (response.type === "reject") {
-								await cleanup();
-								const code =
-									response.reason === "rate limited"
-										? EXIT_RATE_LIMITED
-										: EXIT_REJECTED;
-								resolve({ code, message: response.reason || "unauthorized" });
-							}
-						} catch {
-							await cleanup();
-							resolve({ code: EXIT_INVALID, message: "Invalid response" });
-						}
-					}
-				});
+        const logMsgStr = `${JSON.stringify(msg)}\n`;
+        socket.write(logMsgStr);
+        let buffer = "";
+        socket.on("data", async (data: Buffer) => {
+          buffer += data.toString();
+          if (buffer.includes("\n")) {
+            const line = buffer.split("\n")[0];
+            try {
+              const response: P2PMessage = JSON.parse(line);
+              if (response.type === "ack") {
+                await cleanup();
+                resolve({ code: EXIT_OK });
+              } else if (response.type === "reject") {
+                await cleanup();
+                const code = response.reason === "rate limited" ? EXIT_RATE_LIMITED : EXIT_REJECTED;
+                resolve({ code, message: response.reason || "unauthorized" });
+              }
+            } catch {
+              await cleanup();
+              resolve({ code: EXIT_INVALID, message: "Invalid response" });
+            }
+          }
+        });
 
         socket.on("error", async () => {
           if (!resolved) {
@@ -403,12 +400,10 @@ export async function sendP2PInject(
           ts: Date.now(),
         });
 
-				log(
-					`[sendP2PInject] Sending inject message with requestId ${requestId.slice(0, 8)}...`,
-				);
-				const injectMsgStr = `${JSON.stringify(msg)}\n`;
-				socket.write(injectMsgStr);
-				log(`[sendP2PInject] Inject sent, waiting for response...`);
+        log(`[sendP2PInject] Sending inject message with requestId ${requestId.slice(0, 8)}...`);
+        const injectMsgStr = `${JSON.stringify(msg)}\n`;
+        socket.write(injectMsgStr);
+        log(`[sendP2PInject] Inject sent, waiting for response...`);
 
         let buffer = "";
         socket.on("data", async (data: Buffer) => {
@@ -556,7 +551,7 @@ export async function claimToken(tokenStr: string, timeoutMs = 10000): Promise<C
           ts: Date.now(),
         });
 
-				socket.write(`${JSON.stringify(msg)}\n`);
+        socket.write(`${JSON.stringify(msg)}\n`);
 
         let buffer = "";
         socket.on("data", async (data: Buffer) => {
@@ -675,7 +670,7 @@ export async function sendKeyRotation(
           sig: rotation.sig,
         };
 
-				socket.write(`${JSON.stringify(msg)}\n`);
+        socket.write(`${JSON.stringify(msg)}\n`);
 
         let buffer = "";
         socket.on("data", async (data: Buffer) => {
@@ -835,70 +830,70 @@ function handleConnection(socket: Duplex, myPublicKey: string, callbacks: P2PCal
     if (msg.type === "hello" && !handshakeComplete) {
       const commonVersions = (msg.versions || [1]).filter((v) => v >= MIN_PROTOCOL_VERSION && v <= PROTOCOL_VERSION);
 
-			if (commonVersions.length === 0) {
-				const reject = signMessage<Omit<P2PMessage, "sig">>({
-					v: PROTOCOL_VERSION,
-					type: "reject",
-					from: myPublicKey,
-					reason: "no common protocol version",
-					nonce: randomBytes(16).toString("hex"),
-					ts: Date.now(),
-				});
-				socket.write(`${JSON.stringify(reject)}\n`);
-				return;
-			}
+      if (commonVersions.length === 0) {
+        const reject = signMessage<Omit<P2PMessage, "sig">>({
+          v: PROTOCOL_VERSION,
+          type: "reject",
+          from: myPublicKey,
+          reason: "no common protocol version",
+          nonce: randomBytes(16).toString("hex"),
+          ts: Date.now(),
+        });
+        socket.write(`${JSON.stringify(reject)}\n`);
+        return;
+      }
 
       const negotiatedVersion = Math.max(...commonVersions);
       sessionState.negotiatedVersion = negotiatedVersion;
       sessionState.peerEphemeralPub = msg.ephemeralPub;
 
-			const ack = signMessage<Omit<P2PMessage, "sig">>({
-				v: PROTOCOL_VERSION,
-				type: "hello-ack",
-				from: myPublicKey,
-				version: negotiatedVersion,
-				ephemeralPub: ephemeral.publicKey,
-				nonce: randomBytes(16).toString("hex"),
-				ts: Date.now(),
-			});
-			socket.write(`${JSON.stringify(ack)}\n`);
-			handshakeComplete = true;
-			onLog(`Handshake complete: v${negotiatedVersion}`);
-			return;
-		}
+      const ack = signMessage<Omit<P2PMessage, "sig">>({
+        v: PROTOCOL_VERSION,
+        type: "hello-ack",
+        from: myPublicKey,
+        version: negotiatedVersion,
+        ephemeralPub: ephemeral.publicKey,
+        nonce: randomBytes(16).toString("hex"),
+        ts: Date.now(),
+      });
+      socket.write(`${JSON.stringify(ack)}\n`);
+      handshakeComplete = true;
+      onLog(`Handshake complete: v${negotiatedVersion}`);
+      return;
+    }
 
-		// Verify signature for non-hello messages
-		if (msg.type !== "hello" && msg.type !== "hello-ack") {
-			// Handle key rotation
-			if (msg.type === "key-rotation" && msg.keyRotation) {
-				const rotation: KeyRotation = {
-					...msg.keyRotation,
-					type: "key-rotation",
-				};
-				if (processPeerKeyRotation(rotation)) {
-					onLog(`Key rotation processed for ${shortKey(msg.from)}`);
-					const ack = signMessage<Omit<P2PMessage, "sig">>({
-						v: PROTOCOL_VERSION,
-						type: "ack",
-						from: myPublicKey,
-						nonce: randomBytes(16).toString("hex"),
-						ts: Date.now(),
-					});
-					socket.write(`${JSON.stringify(ack)}\n`);
-				} else {
-					onLog(`Key rotation rejected for ${shortKey(msg.from)}`);
-					const reject = signMessage<Omit<P2PMessage, "sig">>({
-						v: PROTOCOL_VERSION,
-						type: "reject",
-						from: myPublicKey,
-						reason: "invalid key rotation",
-						nonce: randomBytes(16).toString("hex"),
-						ts: Date.now(),
-					});
-					socket.write(`${JSON.stringify(reject)}\n`);
-				}
-				return;
-			}
+    // Verify signature for non-hello messages
+    if (msg.type !== "hello" && msg.type !== "hello-ack") {
+      // Handle key rotation
+      if (msg.type === "key-rotation" && msg.keyRotation) {
+        const rotation: KeyRotation = {
+          ...msg.keyRotation,
+          type: "key-rotation",
+        };
+        if (processPeerKeyRotation(rotation)) {
+          onLog(`Key rotation processed for ${shortKey(msg.from)}`);
+          const ack = signMessage<Omit<P2PMessage, "sig">>({
+            v: PROTOCOL_VERSION,
+            type: "ack",
+            from: myPublicKey,
+            nonce: randomBytes(16).toString("hex"),
+            ts: Date.now(),
+          });
+          socket.write(`${JSON.stringify(ack)}\n`);
+        } else {
+          onLog(`Key rotation rejected for ${shortKey(msg.from)}`);
+          const reject = signMessage<Omit<P2PMessage, "sig">>({
+            v: PROTOCOL_VERSION,
+            type: "reject",
+            from: myPublicKey,
+            reason: "invalid key rotation",
+            nonce: randomBytes(16).toString("hex"),
+            ts: Date.now(),
+          });
+          socket.write(`${JSON.stringify(reject)}\n`);
+        }
+        return;
+      }
 
       if (!verifySignature(msg, msg.from)) {
         onLog(`Rejected: invalid signature from ${shortKey(msg.from)}`);
@@ -913,136 +908,129 @@ function handleConnection(socket: Duplex, myPublicKey: string, callbacks: P2PCal
       }
     }
 
-		// Handle claim messages
-		if (msg.type === "claim" && msg.token) {
-			if (!rateLimiter.check(msg.from, "claims")) {
-				onLog(`Rate limited: claim from ${shortKey(msg.from)}`);
-				const reject = signMessage<Omit<P2PMessage, "sig">>({
-					v: PROTOCOL_VERSION,
-					type: "reject",
-					from: myPublicKey,
-					reason: "rate limited",
-					nonce: randomBytes(16).toString("hex"),
-					ts: Date.now(),
-				});
-				socket.write(`${JSON.stringify(reject)}\n`);
-				return;
-			}
+    // Handle claim messages
+    if (msg.type === "claim" && msg.token) {
+      if (!rateLimiter.check(msg.from, "claims")) {
+        onLog(`Rate limited: claim from ${shortKey(msg.from)}`);
+        const reject = signMessage<Omit<P2PMessage, "sig">>({
+          v: PROTOCOL_VERSION,
+          type: "reject",
+          from: myPublicKey,
+          reason: "rate limited",
+          nonce: randomBytes(16).toString("hex"),
+          ts: Date.now(),
+        });
+        socket.write(`${JSON.stringify(reject)}\n`);
+        return;
+      }
 
       onLog(`Claim request from ${shortKey(msg.from)}`);
       try {
         const token = parseInviteToken(msg.token);
 
-				if (token.iss !== myPublicKey) {
-					const reject = signMessage<Omit<P2PMessage, "sig">>({
-						v: PROTOCOL_VERSION,
-						type: "reject",
-						from: myPublicKey,
-						reason: "token not issued by this peer",
-						nonce: randomBytes(16).toString("hex"),
-						ts: Date.now(),
-					});
-					socket.write(`${JSON.stringify(reject)}\n`);
-					return;
-				}
+        if (token.iss !== myPublicKey) {
+          const reject = signMessage<Omit<P2PMessage, "sig">>({
+            v: PROTOCOL_VERSION,
+            type: "reject",
+            from: myPublicKey,
+            reason: "token not issued by this peer",
+            nonce: randomBytes(16).toString("hex"),
+            ts: Date.now(),
+          });
+          socket.write(`${JSON.stringify(reject)}\n`);
+          return;
+        }
 
-				if (token.sub !== msg.from) {
-					const reject = signMessage<Omit<P2PMessage, "sig">>({
-						v: PROTOCOL_VERSION,
-						type: "reject",
-						from: myPublicKey,
-						reason: "token not issued for you",
-						nonce: randomBytes(16).toString("hex"),
-						ts: Date.now(),
-					});
-					socket.write(`${JSON.stringify(reject)}\n`);
-					return;
-				}
+        if (token.sub !== msg.from) {
+          const reject = signMessage<Omit<P2PMessage, "sig">>({
+            v: PROTOCOL_VERSION,
+            type: "reject",
+            from: myPublicKey,
+            reason: "token not issued for you",
+            nonce: randomBytes(16).toString("hex"),
+            ts: Date.now(),
+          });
+          socket.write(`${JSON.stringify(reject)}\n`);
+          return;
+        }
 
         grantAccess(msg.from, token.ses, token.cap, msg.encryptPub);
         onLog(`Granted access to ${shortKey(msg.from)} for sessions: ${token.ses.join(", ")}`);
 
-				const identity = getIdentity()!;
-				const ack = signMessage<Omit<P2PMessage, "sig">>({
-					v: PROTOCOL_VERSION,
-					type: "ack",
-					from: myPublicKey,
-					encryptPub: identity.encryptPub,
-					nonce: randomBytes(16).toString("hex"),
-					ts: Date.now(),
-				});
-				socket.write(`${JSON.stringify(ack)}\n`);
-			} catch (err: unknown) {
-				onLog(`Rejected claim: ${err}`);
-				const reject = signMessage<Omit<P2PMessage, "sig">>({
-					v: PROTOCOL_VERSION,
-					type: "reject",
-					from: myPublicKey,
-					reason: `invalid token: ${err}`,
-					nonce: randomBytes(16).toString("hex"),
-					ts: Date.now(),
-				});
-				socket.write(`${JSON.stringify(reject)}\n`);
-			}
-			return;
-		}
+        const identity = getIdentity()!;
+        const ack = signMessage<Omit<P2PMessage, "sig">>({
+          v: PROTOCOL_VERSION,
+          type: "ack",
+          from: myPublicKey,
+          encryptPub: identity.encryptPub,
+          nonce: randomBytes(16).toString("hex"),
+          ts: Date.now(),
+        });
+        socket.write(`${JSON.stringify(ack)}\n`);
+      } catch (err: unknown) {
+        onLog(`Rejected claim: ${err}`);
+        const reject = signMessage<Omit<P2PMessage, "sig">>({
+          v: PROTOCOL_VERSION,
+          type: "reject",
+          from: myPublicKey,
+          reason: `invalid token: ${err}`,
+          nonce: randomBytes(16).toString("hex"),
+          ts: Date.now(),
+        });
+        socket.write(`${JSON.stringify(reject)}\n`);
+      }
+      return;
+    }
 
-		// Handle log and inject messages
-		if (
-			(msg.type === "log" || msg.type === "inject") &&
-			msg.payload &&
-			msg.session
-		) {
-			const actionName = msg.type === "log" ? "logs" : "injects";
-			if (!rateLimiter.check(msg.from, actionName)) {
-				onLog(`Rate limited: ${msg.type} from ${shortKey(msg.from)}`);
-				const reject = signMessage<Omit<P2PMessage, "sig">>({
-					v: PROTOCOL_VERSION,
-					type: "reject",
-					from: myPublicKey,
-					session: msg.session,
-					reason: "rate limited",
-					nonce: randomBytes(16).toString("hex"),
-					ts: Date.now(),
-				});
-				socket.write(`${JSON.stringify(reject)}\n`);
-				return;
-			}
+    // Handle log and inject messages
+    if ((msg.type === "log" || msg.type === "inject") && msg.payload && msg.session) {
+      const actionName = msg.type === "log" ? "logs" : "injects";
+      if (!rateLimiter.check(msg.from, actionName)) {
+        onLog(`Rate limited: ${msg.type} from ${shortKey(msg.from)}`);
+        const reject = signMessage<Omit<P2PMessage, "sig">>({
+          v: PROTOCOL_VERSION,
+          type: "reject",
+          from: myPublicKey,
+          session: msg.session,
+          reason: "rate limited",
+          nonce: randomBytes(16).toString("hex"),
+          ts: Date.now(),
+        });
+        socket.write(`${JSON.stringify(reject)}\n`);
+        return;
+      }
 
-			// Check payload size limit (security hardening)
-			const payloadSize =
-				typeof msg.payload === "string" ? msg.payload.length : 0;
-			if (payloadSize > MAX_PAYLOAD_SIZE) {
-				onLog(
-					`Rejected: payload too large from ${shortKey(msg.from)} (${payloadSize} > ${MAX_PAYLOAD_SIZE})`,
-				);
-				const reject = signMessage<Omit<P2PMessage, "sig">>({
-					v: PROTOCOL_VERSION,
-					type: "reject",
-					from: myPublicKey,
-					session: msg.session,
-					reason: `payload too large: ${payloadSize} bytes exceeds ${MAX_PAYLOAD_SIZE} limit`,
-					nonce: randomBytes(16).toString("hex"),
-					ts: Date.now(),
-				});
-				socket.write(`${JSON.stringify(reject)}\n`);
-				return;
-			}
+      // Check payload size limit (security hardening)
+      const payloadSize = typeof msg.payload === "string" ? msg.payload.length : 0;
+      if (payloadSize > MAX_PAYLOAD_SIZE) {
+        onLog(`Rejected: payload too large from ${shortKey(msg.from)} (${payloadSize} > ${MAX_PAYLOAD_SIZE})`);
+        const reject = signMessage<Omit<P2PMessage, "sig">>({
+          v: PROTOCOL_VERSION,
+          type: "reject",
+          from: myPublicKey,
+          session: msg.session,
+          reason: `payload too large: ${payloadSize} bytes exceeds ${MAX_PAYLOAD_SIZE} limit`,
+          nonce: randomBytes(16).toString("hex"),
+          ts: Date.now(),
+        });
+        socket.write(`${JSON.stringify(reject)}\n`);
+        return;
+      }
 
-			if (!isAuthorized(msg.from, msg.session)) {
-				onLog(`Rejected: unauthorized ${shortKey(msg.from)} -> ${msg.session}`);
-				const reject = signMessage<Omit<P2PMessage, "sig">>({
-					v: PROTOCOL_VERSION,
-					type: "reject",
-					from: myPublicKey,
-					session: msg.session,
-					reason: "unauthorized",
-					nonce: randomBytes(16).toString("hex"),
-					ts: Date.now(),
-				});
-				socket.write(`${JSON.stringify(reject)}\n`);
-				return;
-			}
+      if (!isAuthorized(msg.from, msg.session)) {
+        onLog(`Rejected: unauthorized ${shortKey(msg.from)} -> ${msg.session}`);
+        const reject = signMessage<Omit<P2PMessage, "sig">>({
+          v: PROTOCOL_VERSION,
+          type: "reject",
+          from: myPublicKey,
+          session: msg.session,
+          reason: "unauthorized",
+          nonce: randomBytes(16).toString("hex"),
+          ts: Date.now(),
+        });
+        socket.write(`${JSON.stringify(reject)}\n`);
+        return;
+      }
 
       onLog(`${msg.type} from ${shortKey(msg.from)} -> ${msg.session}`);
       try {
@@ -1058,32 +1046,28 @@ function handleConnection(socket: Duplex, myPublicKey: string, callbacks: P2PCal
           decryptedPayload = decryptMessage(msg.payload, grant.peerEncryptPub);
         }
 
-				// Handle based on message type
-				if (msg.type === "log") {
-					// Mailbox style - just log the message, don't invoke AI
-					onLog(`[handleConnection] Processing LOG message`);
-					if (onLogMessage) {
-						onLogMessage(msg.session, decryptedPayload, msg.from);
-					}
-					// Send ack
-					const ack = signMessage<Omit<P2PMessage, "sig">>({
-						v: PROTOCOL_VERSION,
-						type: "ack",
-						from: myPublicKey,
-						session: msg.session,
-						nonce: randomBytes(16).toString("hex"),
-						ts: Date.now(),
-					});
-					socket.write(`${JSON.stringify(ack)}\n`);
-					onLog(`Logged to ${msg.session}`);
-				} else if (msg.type === "inject") {
-					// Invoke AI and return response
-					onLog(
-						`[handleConnection] Processing INJECT message, requestId: ${msg.requestId?.slice(0, 8) || "none"}`,
-					);
-					onLog(
-						`[handleConnection] onInjectMessage handler: ${onInjectMessage ? "present" : "MISSING"}`,
-					);
+        // Handle based on message type
+        if (msg.type === "log") {
+          // Mailbox style - just log the message, don't invoke AI
+          onLog(`[handleConnection] Processing LOG message`);
+          if (onLogMessage) {
+            onLogMessage(msg.session, decryptedPayload, msg.from);
+          }
+          // Send ack
+          const ack = signMessage<Omit<P2PMessage, "sig">>({
+            v: PROTOCOL_VERSION,
+            type: "ack",
+            from: myPublicKey,
+            session: msg.session,
+            nonce: randomBytes(16).toString("hex"),
+            ts: Date.now(),
+          });
+          socket.write(`${JSON.stringify(ack)}\n`);
+          onLog(`Logged to ${msg.session}`);
+        } else if (msg.type === "inject") {
+          // Invoke AI and return response
+          onLog(`[handleConnection] Processing INJECT message, requestId: ${msg.requestId?.slice(0, 8) || "none"}`);
+          onLog(`[handleConnection] onInjectMessage handler: ${onInjectMessage ? "present" : "MISSING"}`);
 
           if (onInjectMessage) {
             onLog(`[handleConnection] Calling onInjectMessage for session ${msg.session}...`);
@@ -1137,43 +1121,41 @@ function handleConnection(socket: Duplex, myPublicKey: string, callbacks: P2PCal
               ts: Date.now(),
             });
 
-						const responseJson = JSON.stringify(response);
-						onLog(
-							`[handleConnection] Sending response message (${responseJson.length} chars), requestId: ${msg.requestId?.slice(0, 8)}...`,
-						);
-						const writeResult = socket.write(`${responseJson}\n`);
-						onLog(`[handleConnection] socket.write returned: ${writeResult}`);
-						onLog(
-							`Sent AI response to ${shortKey(msg.from)} (requestId: ${msg.requestId?.slice(0, 8)}...)`,
-						);
-					} else {
-						// No inject handler - send ack for backwards compatibility
-						onLog(`[handleConnection] No inject handler, sending ack instead`);
-						const ack = signMessage<Omit<P2PMessage, "sig">>({
-							v: PROTOCOL_VERSION,
-							type: "ack",
-							from: myPublicKey,
-							session: msg.session,
-							nonce: randomBytes(16).toString("hex"),
-							ts: Date.now(),
-						});
-						socket.write(`${JSON.stringify(ack)}\n`);
-						onLog(`Delivered to ${msg.session} (no inject handler)`);
-					}
-				}
-			} catch (err: unknown) {
-				onLog(`[handleConnection] ERROR: ${msg.type} failed: ${err}`);
-				const reject = signMessage<Omit<P2PMessage, "sig">>({
-					v: PROTOCOL_VERSION,
-					type: "reject",
-					from: myPublicKey,
-					session: msg.session,
-					reason: `${msg.type} failed`,
-					nonce: randomBytes(16).toString("hex"),
-					ts: Date.now(),
-				});
-				socket.write(`${JSON.stringify(reject)}\n`);
-			}
-		}
-	});
+            const responseJson = JSON.stringify(response);
+            onLog(
+              `[handleConnection] Sending response message (${responseJson.length} chars), requestId: ${msg.requestId?.slice(0, 8)}...`,
+            );
+            const writeResult = socket.write(`${responseJson}\n`);
+            onLog(`[handleConnection] socket.write returned: ${writeResult}`);
+            onLog(`Sent AI response to ${shortKey(msg.from)} (requestId: ${msg.requestId?.slice(0, 8)}...)`);
+          } else {
+            // No inject handler - send ack for backwards compatibility
+            onLog(`[handleConnection] No inject handler, sending ack instead`);
+            const ack = signMessage<Omit<P2PMessage, "sig">>({
+              v: PROTOCOL_VERSION,
+              type: "ack",
+              from: myPublicKey,
+              session: msg.session,
+              nonce: randomBytes(16).toString("hex"),
+              ts: Date.now(),
+            });
+            socket.write(`${JSON.stringify(ack)}\n`);
+            onLog(`Delivered to ${msg.session} (no inject handler)`);
+          }
+        }
+      } catch (err: unknown) {
+        onLog(`[handleConnection] ERROR: ${msg.type} failed: ${err}`);
+        const reject = signMessage<Omit<P2PMessage, "sig">>({
+          v: PROTOCOL_VERSION,
+          type: "reject",
+          from: myPublicKey,
+          session: msg.session,
+          reason: `${msg.type} failed`,
+          nonce: randomBytes(16).toString("hex"),
+          ts: Date.now(),
+        });
+        socket.write(`${JSON.stringify(reject)}\n`);
+      }
+    }
+  });
 }

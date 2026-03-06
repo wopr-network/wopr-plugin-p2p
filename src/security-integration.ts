@@ -174,16 +174,16 @@ export function removeFriendFromSecurity(friend: Friend): void {
   const config = loadSecurityConfig();
   if (!config) return;
 
-	// Remove session config
-	if (config.sessions?.[friend.sessionName]) {
-		delete config.sessions[friend.sessionName];
-	}
+  // Remove session config
+  if (config.sessions?.[friend.sessionName]) {
+    delete config.sessions[friend.sessionName];
+  }
 
-	// Remove source config
-	const accessPattern = `p2p:${friend.publicKey}`;
-	if (config.sources?.[accessPattern]) {
-		delete config.sources[accessPattern];
-	}
+  // Remove source config
+  const accessPattern = `p2p:${friend.publicKey}`;
+  if (config.sources?.[accessPattern]) {
+    delete config.sources[accessPattern];
+  }
 
   saveSecurityConfig(config);
 }

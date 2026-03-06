@@ -334,8 +334,8 @@ function registerAcceptCommand(
  * Register /friends command
  */
 function registerFriendsCommand(
-	channel: ReturnType<NonNullable<WOPRPluginContext["getChannelProviders"]>>[0],
-	_ctx: WOPRPluginContext,
+  channel: ReturnType<NonNullable<WOPRPluginContext["getChannelProviders"]>>[0],
+  _ctx: WOPRPluginContext,
 ): void {
   channel.registerCommand({
     name: "friends",
@@ -514,7 +514,9 @@ function registerFriendRequestParser(
                 await provider.sendNotification(msgCtx.channel, payload, callbacks);
                 ctx.log.info(`[p2p] Sent notification to ${provider.id} for friend request from @${request.from}`);
               } catch (err) {
-                ctx.log.warn(`[p2p] Failed to send notification to ${provider.id}: ${err instanceof Error ? err.message : String(err)}`);
+                ctx.log.warn(
+                  `[p2p] Failed to send notification to ${provider.id}: ${err instanceof Error ? err.message : String(err)}`,
+                );
               }
             }
           }

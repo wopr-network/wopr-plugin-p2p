@@ -42,7 +42,7 @@ describe("registerChannelHooks", () => {
 
     registerChannelHooks(ctx);
 
-    expect(logMessages.some(m => m.includes("No channel provider support"))).toBeTruthy();
+    expect(logMessages.some((m) => m.includes("No channel provider support"))).toBeTruthy();
     expect(registeredCommands.length).toBe(0);
   });
 
@@ -51,7 +51,7 @@ describe("registerChannelHooks", () => {
 
     registerChannelHooks(ctx);
 
-    expect(logMessages.some(m => m.includes("No channel providers registered"))).toBeTruthy();
+    expect(logMessages.some((m) => m.includes("No channel providers registered"))).toBeTruthy();
     expect(registeredCommands.length).toBe(0);
   });
 
@@ -158,7 +158,7 @@ describe("registerChannelHooks", () => {
 
     expect(commands1.length).toBe(5);
     expect(commands2.length).toBe(5);
-    expect(logMessages.some(m => m.includes("2 channel(s)"))).toBeTruthy();
+    expect(logMessages.some((m) => m.includes("2 channel(s)"))).toBeTruthy();
   });
 
   it("should match FRIEND_REQUEST pattern correctly", () => {

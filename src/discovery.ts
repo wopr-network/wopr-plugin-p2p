@@ -328,20 +328,20 @@ export async function requestConnection(peerId: string): Promise<ConnectionResul
       });
     }, 10000);
 
-		// Check if peer accepted (relies on connect_response handler)
-		const checkInterval = setInterval(() => {
-			const updatedPeer = discoveredPeers.get(peer?.publicKey);
-			if (updatedPeer?.connected) {
-				clearTimeout(timeout);
-				clearInterval(checkInterval);
-				resolve({
-					accept: true,
-					code: EXIT_OK,
-					sessions: updatedPeer.grantedSessions || ["*"],
-				});
-			}
-		}, 500);
-	});
+    // Check if peer accepted (relies on connect_response handler)
+    const checkInterval = setInterval(() => {
+      const updatedPeer = discoveredPeers.get(peer?.publicKey);
+      if (updatedPeer?.connected) {
+        clearTimeout(timeout);
+        clearInterval(checkInterval);
+        resolve({
+          accept: true,
+          code: EXIT_OK,
+          sessions: updatedPeer.grantedSessions || ["*"],
+        });
+      }
+    }, 500);
+  });
 }
 
 /**
@@ -410,15 +410,15 @@ export function notifyGrantUpdate(peerPublicKey: string, sessions: string[]): bo
  * Shutdown discovery system
  */
 export async function shutdownDiscovery(): Promise<void> {
-	if (discoverySwarm) {
-		// Leave all topics
-		for (const [_topic, hash] of activeTopics) {
-			try {
-				await discoverySwarm.leave(hash);
-			} catch {
-				// Ignore errors during shutdown
-			}
-		}
+  if (discoverySwarm) {
+    // Leave all topics
+    for (const [_topic, hash] of activeTopics) {
+      try {
+        await discoverySwarm.leave(hash);
+      } catch {
+        // Ignore errors during shutdown
+      }
+    }
 
     await discoverySwarm.destroy();
     discoverySwarm = null;

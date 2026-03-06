@@ -85,11 +85,11 @@ export function getReplayProtector() {
       replayState.nonces.add(nonce);
       replayState.timestamps.push(now);
 
-			// Cleanup old nonces periodically
-			if (replayState.nonces.size > MAX_NONCES) {
-				const _cutoff = now - REPLAY_WINDOW_MS;
-				const _newNonces = new Set<string>();
-				const _newTimestamps: number[] = [];
+      // Cleanup old nonces periodically
+      if (replayState.nonces.size > MAX_NONCES) {
+        const _cutoff = now - REPLAY_WINDOW_MS;
+        const _newNonces = new Set<string>();
+        const _newTimestamps: number[] = [];
 
         // Keep only recent entries (simplified cleanup)
         replayState.nonces.clear();

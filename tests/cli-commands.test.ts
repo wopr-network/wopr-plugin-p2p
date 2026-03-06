@@ -8,7 +8,6 @@ import { describe, it, afterEach, beforeEach, expect, vi } from "vitest";
 import { mkdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, describe, it } from "node:test";
 
 import { friendCommand, handleFriendCommand } from "../src/cli-commands.js";
 
@@ -39,18 +38,21 @@ function createMockCtx() {
   };
 }
 
-/** Capture console.log output during a function call */
+/** Capture console output during a function call */
 async function captureConsole(fn: () => Promise<void>): Promise<{ stdout: string[]; stderr: string[] }> {
   const stdout: string[] = [];
   const stderr: string[] = [];
   const origLog = console.log;
+  const origInfo = console.info;
   const origError = console.error;
   console.log = (...args: any[]) => stdout.push(args.map(String).join(" "));
+  console.info = (...args: any[]) => stdout.push(args.map(String).join(" "));
   console.error = (...args: any[]) => stderr.push(args.map(String).join(" "));
   try {
     await fn();
   } finally {
     console.log = origLog;
+    console.info = origInfo;
     console.error = origError;
   }
   return { stdout, stderr };
@@ -187,7 +189,9 @@ describe("handleFriendCommand", () => {
 
     it("should reject invalid capabilities", async () => {
       const { ctx } = createMockCtx();
-      const { stdout, stderr } = await captureConsole(() => handleFriendCommand(ctx as any, ["grant", "hope", "admin"]));
+      const { stdout, stderr } = await captureConsole(() =>
+        handleFriendCommand(ctx as any, ["grant", "hope", "admin"]),
+      );
       const allOutput = [...stdout, ...stderr].join("\n");
       expect(allOutput.includes("Invalid capability")).toBeTruthy();
     });
@@ -196,7 +200,9 @@ describe("handleFriendCommand", () => {
       cleanup = useTestDataDir();
       const { ctx } = createMockCtx();
       // Will fail because friend not found in empty test state, but should not reject the cap
-      const { stdout, stderr } = await captureConsole(() => handleFriendCommand(ctx as any, ["grant", "hope", "inject"]));
+      const { stdout, stderr } = await captureConsole(() =>
+        handleFriendCommand(ctx as any, ["grant", "hope", "inject"]),
+      );
       const allOutput = [...stdout, ...stderr].join("\n");
       // Should not contain "Invalid capability"
       expect(!allOutput.includes("Invalid capability")).toBeTruthy();
@@ -205,7 +211,9 @@ describe("handleFriendCommand", () => {
     it("should accept message capability", async () => {
       cleanup = useTestDataDir();
       const { ctx } = createMockCtx();
-      const { stdout, stderr } = await captureConsole(() => handleFriendCommand(ctx as any, ["grant", "hope", "message"]));
+      const { stdout, stderr } = await captureConsole(() =>
+        handleFriendCommand(ctx as any, ["grant", "hope", "message"]),
+      );
       const allOutput = [...stdout, ...stderr].join("\n");
       expect(!allOutput.includes("Invalid capability")).toBeTruthy();
     });
@@ -269,15 +277,15 @@ describe("handleFriendCommand", () => {
       cleanup = useTestDataDir();
       const { ctx: ctx1 } = createMockCtx();
       const { stdout: stdout1 } = await captureConsole(() =>
-        handleFriendCommand(ctx1 as any, ["auto-accept", "add", "test-pattern-cli"])
+        handleFriendCommand(ctx1 as any, ["auto-accept", "add", "test-pattern-cli"]),
       );
-      expect(stdout1.some(l => l.includes("Added"))).toBeTruthy();
+      expect(stdout1.some((l) => l.includes("Added"))).toBeTruthy();
 
       const { ctx: ctx2 } = createMockCtx();
       const { stdout: stdout2 } = await captureConsole(() =>
-        handleFriendCommand(ctx2 as any, ["auto-accept", "remove", "test-pattern-cli"])
+        handleFriendCommand(ctx2 as any, ["auto-accept", "remove", "test-pattern-cli"]),
       );
-      expect(stdout2.some(l => l.includes("Removed"))).toBeTruthy();
+      expect(stdout2.some((l) => l.includes("Removed"))).toBeTruthy();
     });
   });
 

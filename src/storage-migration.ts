@@ -25,98 +25,91 @@ export async function migrateJsonToSql(storage: StorageApi, log: (msg: string) =
   const dataDir = getDataDir();
   let migrated = 0;
 
-	// 1. Migrate identity.json
-	const identityFile = join(dataDir, "identity.json");
-	if (existsSync(identityFile)) {
-		try {
-			const identity = JSON.parse(readFileSync(identityFile, "utf-8"));
-			const repo = storage.getRepository<P2PIdentityRow>("p2p", "identity");
-			const existing = await repo.findById("default");
-			if (!existing) {
-				await repo.insert({
-					id: "default",
-					publicKey: identity.publicKey,
-					privateKey: identity.privateKey,
-					encryptPub: identity.encryptPub,
-					encryptPriv: identity.encryptPriv,
-					created: identity.created,
-					rotatedFrom: identity.rotatedFrom,
-					rotatedAt: identity.rotatedAt,
-				});
-				log(`Migrated identity.json`);
-				migrated++;
-			}
-			renameSync(identityFile, `${identityFile}.backup`);
-		} catch (err: unknown) {
-			log(`Failed to migrate identity.json: ${err}`);
-		}
-	}
+  // 1. Migrate identity.json
+  const identityFile = join(dataDir, "identity.json");
+  if (existsSync(identityFile)) {
+    try {
+      const identity = JSON.parse(readFileSync(identityFile, "utf-8"));
+      const repo = storage.getRepository<P2PIdentityRow>("p2p", "identity");
+      const existing = await repo.findById("default");
+      if (!existing) {
+        await repo.insert({
+          id: "default",
+          publicKey: identity.publicKey,
+          privateKey: identity.privateKey,
+          encryptPub: identity.encryptPub,
+          encryptPriv: identity.encryptPriv,
+          created: identity.created,
+          rotatedFrom: identity.rotatedFrom,
+          rotatedAt: identity.rotatedAt,
+        });
+        log(`Migrated identity.json`);
+        migrated++;
+      }
+      renameSync(identityFile, `${identityFile}.backup`);
+    } catch (err: unknown) {
+      log(`Failed to migrate identity.json: ${err}`);
+    }
+  }
 
-	// 2. Migrate peers.json
-	const peersFile = join(dataDir, "peers.json");
-	if (existsSync(peersFile)) {
-		try {
-			const peers = JSON.parse(
-				readFileSync(peersFile, "utf-8"),
-			) as P2PPeerRow[];
-			const repo = storage.getRepository<P2PPeerRow>("p2p", "peers");
-			for (const peer of peers) {
-				const existing = await repo.findFirst({ publicKey: peer.publicKey });
-				if (!existing) {
-					await repo.insert({
-						id: peer.id,
-						publicKey: peer.publicKey,
-						encryptPub: peer.encryptPub,
-						name: peer.name,
-						sessions: peer.sessions,
-						caps: peer.caps,
-						added: peer.added,
-						keyHistory: peer.keyHistory,
-					});
-				}
-			}
-			log(`Migrated ${peers.length} peers from peers.json`);
-			migrated++;
-			renameSync(peersFile, `${peersFile}.backup`);
-		} catch (err: unknown) {
-			log(`Failed to migrate peers.json: ${err}`);
-		}
-	}
+  // 2. Migrate peers.json
+  const peersFile = join(dataDir, "peers.json");
+  if (existsSync(peersFile)) {
+    try {
+      const peers = JSON.parse(readFileSync(peersFile, "utf-8")) as P2PPeerRow[];
+      const repo = storage.getRepository<P2PPeerRow>("p2p", "peers");
+      for (const peer of peers) {
+        const existing = await repo.findFirst({ publicKey: peer.publicKey });
+        if (!existing) {
+          await repo.insert({
+            id: peer.id,
+            publicKey: peer.publicKey,
+            encryptPub: peer.encryptPub,
+            name: peer.name,
+            sessions: peer.sessions,
+            caps: peer.caps,
+            added: peer.added,
+            keyHistory: peer.keyHistory,
+          });
+        }
+      }
+      log(`Migrated ${peers.length} peers from peers.json`);
+      migrated++;
+      renameSync(peersFile, `${peersFile}.backup`);
+    } catch (err: unknown) {
+      log(`Failed to migrate peers.json: ${err}`);
+    }
+  }
 
-	// 3. Migrate access.json
-	const accessFile = join(dataDir, "access.json");
-	if (existsSync(accessFile)) {
-		try {
-			const grants = JSON.parse(
-				readFileSync(accessFile, "utf-8"),
-			) as P2PAccessGrantRow[];
-			const repo = storage.getRepository<P2PAccessGrantRow>(
-				"p2p",
-				"access_grants",
-			);
-			for (const grant of grants) {
-				const existing = await repo.findById(grant.id);
-				if (!existing) {
-					await repo.insert({
-						id: grant.id,
-						peerKey: grant.peerKey,
-						peerName: grant.peerName,
-						peerEncryptPub: grant.peerEncryptPub,
-						sessions: grant.sessions,
-						caps: grant.caps,
-						created: grant.created,
-						revoked: grant.revoked ? 1 : undefined,
-						keyHistory: grant.keyHistory,
-					});
-				}
-			}
-			log(`Migrated ${grants.length} access grants from access.json`);
-			migrated++;
-			renameSync(accessFile, `${accessFile}.backup`);
-		} catch (err: unknown) {
-			log(`Failed to migrate access.json: ${err}`);
-		}
-	}
+  // 3. Migrate access.json
+  const accessFile = join(dataDir, "access.json");
+  if (existsSync(accessFile)) {
+    try {
+      const grants = JSON.parse(readFileSync(accessFile, "utf-8")) as P2PAccessGrantRow[];
+      const repo = storage.getRepository<P2PAccessGrantRow>("p2p", "access_grants");
+      for (const grant of grants) {
+        const existing = await repo.findById(grant.id);
+        if (!existing) {
+          await repo.insert({
+            id: grant.id,
+            peerKey: grant.peerKey,
+            peerName: grant.peerName,
+            peerEncryptPub: grant.peerEncryptPub,
+            sessions: grant.sessions,
+            caps: grant.caps,
+            created: grant.created,
+            revoked: grant.revoked ? 1 : undefined,
+            keyHistory: grant.keyHistory,
+          });
+        }
+      }
+      log(`Migrated ${grants.length} access grants from access.json`);
+      migrated++;
+      renameSync(accessFile, `${accessFile}.backup`);
+    } catch (err: unknown) {
+      log(`Failed to migrate access.json: ${err}`);
+    }
+  }
 
   // 4. Migrate friends.json (4 arrays -> 3 tables)
   const friendsFile = join(dataDir, "friends.json");
@@ -182,18 +175,18 @@ export async function migrateJsonToSql(storage: StorageApi, log: (msg: string) =
         }
       }
 
-			const total =
-				(state.friends?.length || 0) +
-				(state.pendingIn?.length || 0) +
-				(state.pendingOut?.length || 0) +
-				(state.autoAccept?.length || 0);
-			log(`Migrated ${total} records from friends.json`);
-			migrated++;
-			renameSync(friendsFile, `${friendsFile}.backup`);
-		} catch (err: unknown) {
-			log(`Failed to migrate friends.json: ${err}`);
-		}
-	}
+      const total =
+        (state.friends?.length || 0) +
+        (state.pendingIn?.length || 0) +
+        (state.pendingOut?.length || 0) +
+        (state.autoAccept?.length || 0);
+      log(`Migrated ${total} records from friends.json`);
+      migrated++;
+      renameSync(friendsFile, `${friendsFile}.backup`);
+    } catch (err: unknown) {
+      log(`Failed to migrate friends.json: ${err}`);
+    }
+  }
 
   if (migrated > 0) {
     log(`Migration complete: ${migrated} JSON files migrated to SQL`);

@@ -11,7 +11,6 @@ import { describe, it, afterEach, expect } from "vitest";
 import { mkdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, describe, it } from "node:test";
 
 import { claimToken, createP2PListener, sendKeyRotation, sendP2PInject, sendP2PLog, setP2PLogger } from "../src/p2p.js";
 import { EXIT_INVALID } from "../src/types.js";
@@ -67,7 +66,7 @@ describe("P2P Module - createP2PListener", () => {
 
     // With empty test data dir, no identity exists => swarm is null
     expect(swarm).toBe(null);
-    expect(logMessages.some(m => m.includes("No identity"))).toBeTruthy();
+    expect(logMessages.some((m) => m.includes("No identity"))).toBeTruthy();
   });
 
   it("should accept legacy function signature", async () => {
@@ -79,7 +78,7 @@ describe("P2P Module - createP2PListener", () => {
     const swarm = createP2PListener(onInject, onLog);
 
     expect(swarm).toBe(null);
-    expect(logMessages.some(m => m.includes("No identity"))).toBeTruthy();
+    expect(logMessages.some((m) => m.includes("No identity"))).toBeTruthy();
   });
 });
 

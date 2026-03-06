@@ -7,6 +7,7 @@
 
 import { describe, it, beforeEach, afterEach, expect, vi } from "vitest";
 import { mkdirSync, rmSync } from "node:fs";
+import { join } from "node:path";
 import { tmpdir } from "node:os";
 
 import type { AccessGrant, Peer, KeyRotation } from "../src/types.js";
@@ -208,19 +209,23 @@ describe("Peer Management", () => {
     });
 
     it("should find by key history", () => {
-      const peers: Peer[] = [{
-        id: "current-id",
-        publicKey: "current-key",
-        sessions: ["s1"],
-        caps: ["message"],
-        added: Date.now(),
-        keyHistory: [{
-          publicKey: "old-key",
-          encryptPub: "old-enc",
-          validFrom: Date.now() - 100000,
-          validUntil: Date.now() + 100000,
-        }],
-      }];
+      const peers: Peer[] = [
+        {
+          id: "current-id",
+          publicKey: "current-key",
+          sessions: ["s1"],
+          caps: ["message"],
+          added: Date.now(),
+          keyHistory: [
+            {
+              publicKey: "old-key",
+              encryptPub: "old-enc",
+              validFrom: Date.now() - 100000,
+              validUntil: Date.now() + 100000,
+            },
+          ],
+        },
+      ];
       trust.savePeers(peers);
 
       const found = trust.findPeer("old-key");
@@ -316,13 +321,15 @@ describe("Authorization", () => {
 
     it("should deny peer with no matching capability", () => {
       // Grant with a non-message/inject capability
-      const grants: AccessGrant[] = [{
-        id: "g1",
-        peerKey: "nocap-key",
-        sessions: ["s1"],
-        caps: ["other"],
-        created: Date.now(),
-      }];
+      const grants: AccessGrant[] = [
+        {
+          id: "g1",
+          peerKey: "nocap-key",
+          sessions: ["s1"],
+          caps: ["other"],
+          created: Date.now(),
+        },
+      ];
       trust.saveAccessGrants(grants);
 
       expect(trust.isAuthorized("nocap-key", "s1")).toBe(false);
@@ -340,38 +347,46 @@ describe("Authorization", () => {
     });
 
     it("should authorize old key in grace period via key history", () => {
-      const grants: AccessGrant[] = [{
-        id: "g-rotated",
-        peerKey: "new-key",
-        sessions: ["s1"],
-        caps: ["message"],
-        created: Date.now(),
-        keyHistory: [{
-          publicKey: "old-key",
-          encryptPub: "old-enc",
-          validFrom: Date.now() - 100000,
-          validUntil: Date.now() + 100000, // Still valid
-        }],
-      }];
+      const grants: AccessGrant[] = [
+        {
+          id: "g-rotated",
+          peerKey: "new-key",
+          sessions: ["s1"],
+          caps: ["message"],
+          created: Date.now(),
+          keyHistory: [
+            {
+              publicKey: "old-key",
+              encryptPub: "old-enc",
+              validFrom: Date.now() - 100000,
+              validUntil: Date.now() + 100000, // Still valid
+            },
+          ],
+        },
+      ];
       trust.saveAccessGrants(grants);
 
       expect(trust.isAuthorized("old-key", "s1")).toBe(true);
     });
 
     it("should deny old key past grace period", () => {
-      const grants: AccessGrant[] = [{
-        id: "g-expired",
-        peerKey: "new-key-2",
-        sessions: ["s1"],
-        caps: ["message"],
-        created: Date.now(),
-        keyHistory: [{
-          publicKey: "expired-key",
-          encryptPub: "old-enc",
-          validFrom: Date.now() - 200000,
-          validUntil: Date.now() - 100000, // Expired
-        }],
-      }];
+      const grants: AccessGrant[] = [
+        {
+          id: "g-expired",
+          peerKey: "new-key-2",
+          sessions: ["s1"],
+          caps: ["message"],
+          created: Date.now(),
+          keyHistory: [
+            {
+              publicKey: "expired-key",
+              encryptPub: "old-enc",
+              validFrom: Date.now() - 200000,
+              validUntil: Date.now() - 100000, // Expired
+            },
+          ],
+        },
+      ];
       trust.saveAccessGrants(grants);
 
       expect(trust.isAuthorized("expired-key", "s1")).toBe(false);
@@ -388,18 +403,22 @@ describe("Authorization", () => {
     });
 
     it("should find grant by historical key", () => {
-      const grants: AccessGrant[] = [{
-        id: "g-hist",
-        peerKey: "current-key",
-        sessions: ["s1"],
-        caps: ["message"],
-        created: Date.now(),
-        keyHistory: [{
-          publicKey: "historical-key",
-          encryptPub: "enc",
-          validFrom: Date.now() - 100000,
-        }],
-      }];
+      const grants: AccessGrant[] = [
+        {
+          id: "g-hist",
+          peerKey: "current-key",
+          sessions: ["s1"],
+          caps: ["message"],
+          created: Date.now(),
+          keyHistory: [
+            {
+              publicKey: "historical-key",
+              encryptPub: "enc",
+              validFrom: Date.now() - 100000,
+            },
+          ],
+        },
+      ];
       trust.saveAccessGrants(grants);
 
       const grant = trust.getGrantForPeer("historical-key");
@@ -511,44 +530,48 @@ describe("Key History Cleanup", () => {
 
   describe("cleanupExpiredKeyHistory", () => {
     it("should remove expired key history entries", () => {
-      const grants: AccessGrant[] = [{
-        id: "g-cleanup",
-        peerKey: "current",
-        sessions: ["s1"],
-        caps: ["message"],
-        created: Date.now(),
-        keyHistory: [
-          {
-            publicKey: "expired-key",
-            encryptPub: "enc",
-            validFrom: Date.now() - 200000,
-            validUntil: Date.now() - 100000, // Expired
-          },
-          {
-            publicKey: "valid-key",
-            encryptPub: "enc",
-            validFrom: Date.now() - 50000,
-            validUntil: Date.now() + 100000, // Still valid
-          },
-        ],
-      }];
+      const grants: AccessGrant[] = [
+        {
+          id: "g-cleanup",
+          peerKey: "current",
+          sessions: ["s1"],
+          caps: ["message"],
+          created: Date.now(),
+          keyHistory: [
+            {
+              publicKey: "expired-key",
+              encryptPub: "enc",
+              validFrom: Date.now() - 200000,
+              validUntil: Date.now() - 100000, // Expired
+            },
+            {
+              publicKey: "valid-key",
+              encryptPub: "enc",
+              validFrom: Date.now() - 50000,
+              validUntil: Date.now() + 100000, // Still valid
+            },
+          ],
+        },
+      ];
       trust.saveAccessGrants(grants);
 
-      const peers: Peer[] = [{
-        id: "p-cleanup",
-        publicKey: "current",
-        sessions: ["s1"],
-        caps: ["message"],
-        added: Date.now(),
-        keyHistory: [
-          {
-            publicKey: "expired-peer-key",
-            encryptPub: "enc",
-            validFrom: Date.now() - 200000,
-            validUntil: Date.now() - 100000, // Expired
-          },
-        ],
-      }];
+      const peers: Peer[] = [
+        {
+          id: "p-cleanup",
+          publicKey: "current",
+          sessions: ["s1"],
+          caps: ["message"],
+          added: Date.now(),
+          keyHistory: [
+            {
+              publicKey: "expired-peer-key",
+              encryptPub: "enc",
+              validFrom: Date.now() - 200000,
+              validUntil: Date.now() - 100000, // Expired
+            },
+          ],
+        },
+      ];
       trust.savePeers(peers);
 
       trust.cleanupExpiredKeyHistory();
@@ -562,13 +585,15 @@ describe("Key History Cleanup", () => {
     });
 
     it("should not modify grants/peers without key history", () => {
-      const grants: AccessGrant[] = [{
-        id: "g-no-hist",
-        peerKey: "key",
-        sessions: ["s1"],
-        caps: ["message"],
-        created: Date.now(),
-      }];
+      const grants: AccessGrant[] = [
+        {
+          id: "g-no-hist",
+          peerKey: "key",
+          sessions: ["s1"],
+          caps: ["message"],
+          created: Date.now(),
+        },
+      ];
       trust.saveAccessGrants(grants);
 
       trust.cleanupExpiredKeyHistory();
@@ -579,19 +604,23 @@ describe("Key History Cleanup", () => {
     });
 
     it("should keep entries without validUntil", () => {
-      const grants: AccessGrant[] = [{
-        id: "g-no-expiry",
-        peerKey: "key",
-        sessions: ["s1"],
-        caps: ["message"],
-        created: Date.now(),
-        keyHistory: [{
-          publicKey: "permanent-key",
-          encryptPub: "enc",
-          validFrom: Date.now() - 200000,
-          // No validUntil - should be kept
-        }],
-      }];
+      const grants: AccessGrant[] = [
+        {
+          id: "g-no-expiry",
+          peerKey: "key",
+          sessions: ["s1"],
+          caps: ["message"],
+          created: Date.now(),
+          keyHistory: [
+            {
+              publicKey: "permanent-key",
+              encryptPub: "enc",
+              validFrom: Date.now() - 200000,
+              // No validUntil - should be kept
+            },
+          ],
+        },
+      ];
       trust.saveAccessGrants(grants);
 
       trust.cleanupExpiredKeyHistory();
@@ -608,17 +637,19 @@ describe("Key History Cleanup", () => {
     });
 
     it("should include historical keys from grants", () => {
-      const grants: AccessGrant[] = [{
-        id: "g-keys",
-        peerKey: "current-key",
-        sessions: ["s1"],
-        caps: ["message"],
-        created: Date.now(),
-        keyHistory: [
-          { publicKey: "old-key-1", encryptPub: "enc", validFrom: Date.now() - 100000 },
-          { publicKey: "old-key-2", encryptPub: "enc", validFrom: Date.now() - 200000 },
-        ],
-      }];
+      const grants: AccessGrant[] = [
+        {
+          id: "g-keys",
+          peerKey: "current-key",
+          sessions: ["s1"],
+          caps: ["message"],
+          created: Date.now(),
+          keyHistory: [
+            { publicKey: "old-key-1", encryptPub: "enc", validFrom: Date.now() - 100000 },
+            { publicKey: "old-key-2", encryptPub: "enc", validFrom: Date.now() - 200000 },
+          ],
+        },
+      ];
       trust.saveAccessGrants(grants);
 
       const keys = trust.getAllPeerKeys("current-key");
@@ -629,16 +660,16 @@ describe("Key History Cleanup", () => {
     });
 
     it("should include historical keys from peers", () => {
-      const peers: Peer[] = [{
-        id: "p-keys",
-        publicKey: "current-peer-key",
-        sessions: ["s1"],
-        caps: ["message"],
-        added: Date.now(),
-        keyHistory: [
-          { publicKey: "peer-old-key", encryptPub: "enc", validFrom: Date.now() - 100000 },
-        ],
-      }];
+      const peers: Peer[] = [
+        {
+          id: "p-keys",
+          publicKey: "current-peer-key",
+          sessions: ["s1"],
+          caps: ["message"],
+          added: Date.now(),
+          keyHistory: [{ publicKey: "peer-old-key", encryptPub: "enc", validFrom: Date.now() - 100000 }],
+        },
+      ];
       trust.savePeers(peers);
 
       const keys = trust.getAllPeerKeys("current-peer-key");
@@ -647,28 +678,28 @@ describe("Key History Cleanup", () => {
     });
 
     it("should not duplicate keys", () => {
-      const grants: AccessGrant[] = [{
-        id: "g-dup",
-        peerKey: "dup-key",
-        sessions: ["s1"],
-        caps: ["message"],
-        created: Date.now(),
-        keyHistory: [
-          { publicKey: "shared-old-key", encryptPub: "enc", validFrom: Date.now() },
-        ],
-      }];
+      const grants: AccessGrant[] = [
+        {
+          id: "g-dup",
+          peerKey: "dup-key",
+          sessions: ["s1"],
+          caps: ["message"],
+          created: Date.now(),
+          keyHistory: [{ publicKey: "shared-old-key", encryptPub: "enc", validFrom: Date.now() }],
+        },
+      ];
       trust.saveAccessGrants(grants);
 
-      const peers: Peer[] = [{
-        id: "p-dup",
-        publicKey: "dup-key",
-        sessions: ["s1"],
-        caps: ["message"],
-        added: Date.now(),
-        keyHistory: [
-          { publicKey: "shared-old-key", encryptPub: "enc", validFrom: Date.now() },
-        ],
-      }];
+      const peers: Peer[] = [
+        {
+          id: "p-dup",
+          publicKey: "dup-key",
+          sessions: ["s1"],
+          caps: ["message"],
+          added: Date.now(),
+          keyHistory: [{ publicKey: "shared-old-key", encryptPub: "enc", validFrom: Date.now() }],
+        },
+      ];
       trust.savePeers(peers);
 
       const keys = trust.getAllPeerKeys("dup-key");

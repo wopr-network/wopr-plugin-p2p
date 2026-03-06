@@ -8,7 +8,6 @@ import { describe, it, afterEach, expect } from "vitest";
 import { mkdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, describe, it } from "node:test";
 
 import { formatFriendAccept, formatFriendRequest, parseFriendAccept, parseFriendRequest } from "../src/friends.js";
 
@@ -113,7 +112,7 @@ describe("Friend Protocol Message Formatting", () => {
 
       const formatted = formatFriendRequest(request);
       expect(formatted).toBe(
-        "FRIEND_REQUEST | to:hope | from:wopr | pubkey:abc123 | encryptPub:def456 | ts:1700000000000 | sig:xyz789"
+        "FRIEND_REQUEST | to:hope | from:wopr | pubkey:abc123 | encryptPub:def456 | ts:1700000000000 | sig:xyz789",
       );
     });
 
@@ -150,7 +149,7 @@ describe("Friend Protocol Message Formatting", () => {
 
       const formatted = formatFriendAccept(accept);
       expect(formatted).toBe(
-        "FRIEND_ACCEPT | to:wopr | from:hope | pubkey:def456 | encryptPub:ghi789 | requestSig:originalsig | ts:1700000000000 | sig:acceptsig"
+        "FRIEND_ACCEPT | to:wopr | from:hope | pubkey:def456 | encryptPub:ghi789 | requestSig:originalsig | ts:1700000000000 | sig:acceptsig",
       );
     });
 

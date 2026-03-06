@@ -5,16 +5,16 @@
  */
 
 import {
-	createCipheriv,
-	createDecipheriv,
-	createHash,
-	createPrivateKey,
-	createPublicKey,
-	diffieHellman,
-	generateKeyPairSync,
-	randomBytes,
-	sign,
-	verify,
+  createCipheriv,
+  createDecipheriv,
+  createHash,
+  createPrivateKey,
+  createPublicKey,
+  diffieHellman,
+  generateKeyPairSync,
+  randomBytes,
+  sign,
+  verify,
 } from "node:crypto";
 import type { P2PIdentityRow } from "./storage-schema.js";
 import type { EphemeralKeyPair, Identity, InviteToken, KeyRotation, StorageApi } from "./types.js";
@@ -407,8 +407,8 @@ export function createInviteToken(forPubkey: string, sessions: string[], expireH
     nonce: randomBytes(16).toString("hex"),
   };
 
-	const signed = signMessage(token);
-	return `wop1://${Buffer.from(JSON.stringify(signed)).toString("base64url")}`;
+  const signed = signMessage(token);
+  return `wop1://${Buffer.from(JSON.stringify(signed)).toString("base64url")}`;
 }
 
 export function parseInviteToken(tokenStr: string): InviteToken {

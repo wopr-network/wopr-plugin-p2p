@@ -10,12 +10,7 @@
 import { createReadStream, existsSync } from "node:fs";
 import http from "node:http";
 import { extname, resolve, sep } from "node:path";
-import type {
-	A2AServerConfig,
-	A2AToolResult,
-	WOPRPlugin,
-	WOPRPluginContext,
-} from "@wopr-network/plugin-types";
+import type { A2AServerConfig, A2AToolResult, WOPRPlugin, WOPRPluginContext } from "@wopr-network/plugin-types";
 import type Hyperswarm from "hyperswarm";
 import winston from "winston";
 import { registerAutoAcceptCommands, registerChannelHooks, registerP2PSlashCommands } from "./channel-hooks.js";
@@ -34,14 +29,14 @@ import {
   updateProfile,
 } from "./discovery.js";
 import {
-	acceptPendingRequest,
-	cleanupExpiredRequests,
-	createFriendAccept,
-	denyPendingRequest,
-	formatFriendAccept,
-	getPendingIncomingBySignature,
-	loadFriendsData,
-	setFriendsStorage,
+  acceptPendingRequest,
+  cleanupExpiredRequests,
+  createFriendAccept,
+  denyPendingRequest,
+  formatFriendAccept,
+  getPendingIncomingBySignature,
+  loadFriendsData,
+  setFriendsStorage,
 } from "./friends.js";
 import {
   createInviteToken,
@@ -73,15 +68,15 @@ import { incrementStat, resetStats } from "./stats.js";
 import { migrateJsonToSql } from "./storage-migration.js";
 import { p2pPluginSchema } from "./storage-schema.js";
 import {
-	addPeer,
-	findPeer,
-	getAccessGrants,
-	getPeers,
-	grantAccess,
-	loadTrustData,
-	namePeer,
-	revokePeer,
-	setTrustStorage,
+  addPeer,
+  findPeer,
+  getAccessGrants,
+  getPeers,
+  grantAccess,
+  loadTrustData,
+  namePeer,
+  revokePeer,
+  setTrustStorage,
 } from "./trust.js";
 import type { A2AToolContext, P2PToolDefinition } from "./types.js";
 import { EXIT_OK } from "./types.js";
@@ -134,40 +129,40 @@ function startUIServer(port: number, pluginDir: string): http.Server {
   const server = http.createServer((req, res) => {
     const rawUrl = req.url === "/" ? "/ui.js" : req.url || "/ui.js";
 
-		// WebMCP JSON API routes
-		if (req.method === "GET" && rawUrl === "/api/webmcp/status") {
-			res.setHeader("Content-Type", "application/json");
-			res.setHeader("Access-Control-Allow-Origin", "*");
-			try {
-				res.end(JSON.stringify(buildP2pStatusResponse()));
-			} catch (_err: unknown) {
-				res.statusCode = 500;
-				res.end(JSON.stringify({ error: "Internal error" }));
-			}
-			return;
-		}
-		if (req.method === "GET" && rawUrl === "/api/webmcp/peers") {
-			res.setHeader("Content-Type", "application/json");
-			res.setHeader("Access-Control-Allow-Origin", "*");
-			try {
-				res.end(JSON.stringify(buildListPeersResponse()));
-			} catch (_err: unknown) {
-				res.statusCode = 500;
-				res.end(JSON.stringify({ error: "Internal error" }));
-			}
-			return;
-		}
-		if (req.method === "GET" && rawUrl === "/api/webmcp/stats") {
-			res.setHeader("Content-Type", "application/json");
-			res.setHeader("Access-Control-Allow-Origin", "*");
-			try {
-				res.end(JSON.stringify(buildP2pStatsResponse()));
-			} catch (_err: unknown) {
-				res.statusCode = 500;
-				res.end(JSON.stringify({ error: "Internal error" }));
-			}
-			return;
-		}
+    // WebMCP JSON API routes
+    if (req.method === "GET" && rawUrl === "/api/webmcp/status") {
+      res.setHeader("Content-Type", "application/json");
+      res.setHeader("Access-Control-Allow-Origin", "*");
+      try {
+        res.end(JSON.stringify(buildP2pStatusResponse()));
+      } catch (_err: unknown) {
+        res.statusCode = 500;
+        res.end(JSON.stringify({ error: "Internal error" }));
+      }
+      return;
+    }
+    if (req.method === "GET" && rawUrl === "/api/webmcp/peers") {
+      res.setHeader("Content-Type", "application/json");
+      res.setHeader("Access-Control-Allow-Origin", "*");
+      try {
+        res.end(JSON.stringify(buildListPeersResponse()));
+      } catch (_err: unknown) {
+        res.statusCode = 500;
+        res.end(JSON.stringify({ error: "Internal error" }));
+      }
+      return;
+    }
+    if (req.method === "GET" && rawUrl === "/api/webmcp/stats") {
+      res.setHeader("Content-Type", "application/json");
+      res.setHeader("Access-Control-Allow-Origin", "*");
+      try {
+        res.end(JSON.stringify(buildP2pStatsResponse()));
+      } catch (_err: unknown) {
+        res.statusCode = 500;
+        res.end(JSON.stringify({ error: "Internal error" }));
+      }
+      return;
+    }
 
     // Decode percent-encoded characters to catch %2e%2e%2f and similar
     let decoded: string;
@@ -182,9 +177,9 @@ function startUIServer(port: number, pluginDir: string): http.Server {
     // Strip query strings and fragments to prevent ?/../ or #/../ bypasses
     const cleanUrl = decoded.split("?")[0].split("#")[0];
 
-		// Resolve to absolute path — prepend "." to prevent absolute path injection
-		// (e.g. GET //etc/passwd would resolve to /etc/passwd without this guard)
-		const filePath = resolve(pluginDir, `.${cleanUrl}`);
+    // Resolve to absolute path — prepend "." to prevent absolute path injection
+    // (e.g. GET //etc/passwd would resolve to /etc/passwd without this guard)
+    const filePath = resolve(pluginDir, `.${cleanUrl}`);
 
     // Enforce that the resolved path is strictly within pluginDir
     if (!filePath.startsWith(root) && filePath !== resolve(pluginDir)) {
@@ -313,71 +308,70 @@ const p2pTools: P2PToolDefinition[] = [
     },
   },
 
-	// Peer Management Tools
-	{
-		name: "p2p.listPeers",
-		description: "List all known P2P peers with their access permissions.",
-		inputSchema: {
-			type: "object",
-			properties: {},
-		},
-		handler: async () => {
-			const peers = getPeers();
-			return toolResult(
-				JSON.stringify({
-					count: peers.length,
-					peers: peers.map((p) => ({
-						id: p.id,
-						name: p.name,
-						publicKey: `${p.publicKey.slice(0, 20)}...`,
-						sessions: p.sessions,
-						caps: p.caps,
-						added: new Date(p.added).toISOString(),
-					})),
-				}),
-			);
-		},
-	},
-	{
-		name: "p2p.namePeer",
-		description: "Give a friendly name to a peer for easier reference.",
-		inputSchema: {
-			type: "object",
-			properties: {
-				peerId: { type: "string", description: "Peer ID or public key" },
-				name: { type: "string", description: "Friendly name for the peer" },
-			},
-			required: ["peerId", "name"],
-		},
-		handler: async (args) => {
-			try {
-				namePeer(args.peerId as string, args.name as string);
-				return toolResult(`Peer ${args.peerId} named "${args.name}"`);
-			} catch (err: unknown) {
-				return toolResult(`Error: Failed to name peer: ${err}`);
-			}
-		},
-	},
-	{
-		name: "p2p.revokePeer",
-		description:
-			"Revoke access for a peer. They will no longer be able to send messages.",
-		inputSchema: {
-			type: "object",
-			properties: {
-				peerId: { type: "string", description: "Peer ID, name, or public key" },
-			},
-			required: ["peerId"],
-		},
-		handler: async (args) => {
-			try {
-				revokePeer(args.peerId as string);
-				return toolResult(`Access revoked for peer ${args.peerId}`);
-			} catch (err: unknown) {
-				return toolResult(`Error: Failed to revoke peer: ${err}`);
-			}
-		},
-	},
+  // Peer Management Tools
+  {
+    name: "p2p.listPeers",
+    description: "List all known P2P peers with their access permissions.",
+    inputSchema: {
+      type: "object",
+      properties: {},
+    },
+    handler: async () => {
+      const peers = getPeers();
+      return toolResult(
+        JSON.stringify({
+          count: peers.length,
+          peers: peers.map((p) => ({
+            id: p.id,
+            name: p.name,
+            publicKey: `${p.publicKey.slice(0, 20)}...`,
+            sessions: p.sessions,
+            caps: p.caps,
+            added: new Date(p.added).toISOString(),
+          })),
+        }),
+      );
+    },
+  },
+  {
+    name: "p2p.namePeer",
+    description: "Give a friendly name to a peer for easier reference.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        peerId: { type: "string", description: "Peer ID or public key" },
+        name: { type: "string", description: "Friendly name for the peer" },
+      },
+      required: ["peerId", "name"],
+    },
+    handler: async (args) => {
+      try {
+        namePeer(args.peerId as string, args.name as string);
+        return toolResult(`Peer ${args.peerId} named "${args.name}"`);
+      } catch (err: unknown) {
+        return toolResult(`Error: Failed to name peer: ${err}`);
+      }
+    },
+  },
+  {
+    name: "p2p.revokePeer",
+    description: "Revoke access for a peer. They will no longer be able to send messages.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        peerId: { type: "string", description: "Peer ID, name, or public key" },
+      },
+      required: ["peerId"],
+    },
+    handler: async (args) => {
+      try {
+        revokePeer(args.peerId as string);
+        return toolResult(`Access revoked for peer ${args.peerId}`);
+      } catch (err: unknown) {
+        return toolResult(`Error: Failed to revoke peer: ${err}`);
+      }
+    },
+  },
 
   // Invite/Token Tools
   {
@@ -562,29 +556,29 @@ const p2pTools: P2PToolDefinition[] = [
       const peers = getPeers();
       const grants = getAccessGrants();
 
-			return toolResult(
-				JSON.stringify({
-					identity: identity
-						? {
-								shortId: shortKey(identity.publicKey),
-								publicKey: `${identity.publicKey.slice(0, 30)}...`,
-								created: new Date(identity.created).toISOString(),
-							}
-						: null,
-					listening: p2pListener !== null,
-					peers: {
-						count: peers.length,
-						names: peers.filter((p) => p.name).map((p) => p.name),
-					},
-					grants: {
-						total: grants.length,
-						active: grants.filter((g) => !g.revoked).length,
-						revoked: grants.filter((g) => g.revoked).length,
-					},
-				}),
-			);
-		},
-	},
+      return toolResult(
+        JSON.stringify({
+          identity: identity
+            ? {
+                shortId: shortKey(identity.publicKey),
+                publicKey: `${identity.publicKey.slice(0, 30)}...`,
+                created: new Date(identity.created).toISOString(),
+              }
+            : null,
+          listening: p2pListener !== null,
+          peers: {
+            count: peers.length,
+            names: peers.filter((p) => p.name).map((p) => p.name),
+          },
+          grants: {
+            total: grants.length,
+            active: grants.filter((g) => !g.revoked).length,
+            revoked: grants.filter((g) => g.revoked).length,
+          },
+        }),
+      );
+    },
+  },
 
   // Stats Tool
   {
@@ -692,763 +686,714 @@ const p2pTools: P2PToolDefinition[] = [
     },
   },
 
-	// Discovery Tools
-	{
-		name: "p2p.joinTopic",
-		description:
-			"Join a discovery topic to find other peers. Peers in the same topic can discover each other.",
-		inputSchema: {
-			type: "object",
-			properties: {
-				topic: { type: "string", description: "Topic name to join" },
-			},
-			required: ["topic"],
-		},
-		handler: async (args) => {
-			try {
-				await joinTopic(args.topic as string);
-				return toolResult(
-					JSON.stringify({
-						success: true,
-						topic: args.topic,
-						activeTopics: getTopics(),
-					}),
-				);
-			} catch (err: unknown) {
-				return toolResult(`Error: Failed to join topic: ${err}`);
-			}
-		},
-	},
-	{
-		name: "p2p.leaveTopic",
-		description: "Leave a discovery topic.",
-		inputSchema: {
-			type: "object",
-			properties: {
-				topic: { type: "string", description: "Topic name to leave" },
-			},
-			required: ["topic"],
-		},
-		handler: async (args) => {
-			try {
-				await leaveTopic(args.topic as string);
-				return toolResult(
-					JSON.stringify({
-						success: true,
-						topic: args.topic,
-						activeTopics: getTopics(),
-					}),
-				);
-			} catch (err: unknown) {
-				return toolResult(`Error: Failed to leave topic: ${err}`);
-			}
-		},
-	},
-	{
-		name: "p2p.listTopics",
-		description: "List all discovery topics you've joined.",
-		inputSchema: {
-			type: "object",
-			properties: {},
-		},
-		handler: async () => {
-			const topics = getTopics();
-			return toolResult(
-				JSON.stringify({
-					count: topics.length,
-					topics,
-				}),
-			);
-		},
-	},
-	{
-		name: "p2p.discoverPeers",
-		description: "List peers discovered through topic-based discovery.",
-		inputSchema: {
-			type: "object",
-			properties: {
-				topic: { type: "string", description: "Filter by topic (optional)" },
-			},
-		},
-		handler: async (args) => {
-			const peers = getDiscoveredPeers(args.topic as string | undefined);
-			return toolResult(
-				JSON.stringify({
-					count: peers.length,
-					peers: peers.map((p) => ({
-						id: p.id,
-						publicKey: `${p.publicKey.slice(0, 20)}...`,
-						topics: p.topics,
-						content: p.content,
-						connected: p.connected || false,
-					})),
-				}),
-			);
-		},
-	},
-	{
-		name: "p2p.connectPeer",
-		description:
-			"Request connection with a discovered peer. They will decide whether to accept.",
-		inputSchema: {
-			type: "object",
-			properties: {
-				peerId: { type: "string", description: "Peer ID or public key" },
-			},
-			required: ["peerId"],
-		},
-		handler: async (args) => {
-			try {
-				const result = await requestConnection(args.peerId as string);
-				if (result.accept) {
-					return toolResult(
-						JSON.stringify({
-							success: true,
-							connected: true,
-							sessions: result.sessions,
-						}),
-					);
-				} else {
-					return toolResult(
-						`Error: Connection rejected: ${result.message || result.reason}`,
-					);
-				}
-			} catch (err: unknown) {
-				return toolResult(`Error: Connection failed: ${err}`);
-			}
-		},
-	},
-	{
-		name: "p2p.getProfile",
-		description: "Get your discovery profile.",
-		inputSchema: {
-			type: "object",
-			properties: {},
-		},
-		handler: async () => {
-			const profile = getProfile();
-			if (!profile) {
-				return toolResult("Error: Discovery not initialized");
-			}
-			return toolResult(
-				JSON.stringify({
-					id: profile.id,
-					publicKey: `${profile.publicKey.slice(0, 20)}...`,
-					topics: profile.topics,
-					content: profile.content,
-					updated: new Date(profile.updated).toISOString(),
-				}),
-			);
-		},
-	},
-	{
-		name: "p2p.setProfile",
-		description:
-			"Update your discovery profile content. This is broadcast to peers.",
-		inputSchema: {
-			type: "object",
-			properties: {
-				content: {
-					type: "object",
-					description: "Profile content (name, about, capabilities, etc.)",
-				},
-			},
-			required: ["content"],
-		},
-		handler: async (args) => {
-			try {
-				const profile = updateProfile(args.content as Record<string, unknown>);
-				if (!profile) {
-					return toolResult("Error: Discovery not initialized");
-				}
-				return toolResult(
-					JSON.stringify({
-						success: true,
-						id: profile.id,
-						content: profile.content,
-						updated: new Date(profile.updated).toISOString(),
-					}),
-				);
-			} catch (err: unknown) {
-				return toolResult(`Error: Failed to update profile: ${err}`);
-			}
-		},
-	},
+  // Discovery Tools
+  {
+    name: "p2p.joinTopic",
+    description: "Join a discovery topic to find other peers. Peers in the same topic can discover each other.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        topic: { type: "string", description: "Topic name to join" },
+      },
+      required: ["topic"],
+    },
+    handler: async (args) => {
+      try {
+        await joinTopic(args.topic as string);
+        return toolResult(
+          JSON.stringify({
+            success: true,
+            topic: args.topic,
+            activeTopics: getTopics(),
+          }),
+        );
+      } catch (err: unknown) {
+        return toolResult(`Error: Failed to join topic: ${err}`);
+      }
+    },
+  },
+  {
+    name: "p2p.leaveTopic",
+    description: "Leave a discovery topic.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        topic: { type: "string", description: "Topic name to leave" },
+      },
+      required: ["topic"],
+    },
+    handler: async (args) => {
+      try {
+        await leaveTopic(args.topic as string);
+        return toolResult(
+          JSON.stringify({
+            success: true,
+            topic: args.topic,
+            activeTopics: getTopics(),
+          }),
+        );
+      } catch (err: unknown) {
+        return toolResult(`Error: Failed to leave topic: ${err}`);
+      }
+    },
+  },
+  {
+    name: "p2p.listTopics",
+    description: "List all discovery topics you've joined.",
+    inputSchema: {
+      type: "object",
+      properties: {},
+    },
+    handler: async () => {
+      const topics = getTopics();
+      return toolResult(
+        JSON.stringify({
+          count: topics.length,
+          topics,
+        }),
+      );
+    },
+  },
+  {
+    name: "p2p.discoverPeers",
+    description: "List peers discovered through topic-based discovery.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        topic: { type: "string", description: "Filter by topic (optional)" },
+      },
+    },
+    handler: async (args) => {
+      const peers = getDiscoveredPeers(args.topic as string | undefined);
+      return toolResult(
+        JSON.stringify({
+          count: peers.length,
+          peers: peers.map((p) => ({
+            id: p.id,
+            publicKey: `${p.publicKey.slice(0, 20)}...`,
+            topics: p.topics,
+            content: p.content,
+            connected: p.connected || false,
+          })),
+        }),
+      );
+    },
+  },
+  {
+    name: "p2p.connectPeer",
+    description: "Request connection with a discovered peer. They will decide whether to accept.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        peerId: { type: "string", description: "Peer ID or public key" },
+      },
+      required: ["peerId"],
+    },
+    handler: async (args) => {
+      try {
+        const result = await requestConnection(args.peerId as string);
+        if (result.accept) {
+          return toolResult(
+            JSON.stringify({
+              success: true,
+              connected: true,
+              sessions: result.sessions,
+            }),
+          );
+        } else {
+          return toolResult(`Error: Connection rejected: ${result.message || result.reason}`);
+        }
+      } catch (err: unknown) {
+        return toolResult(`Error: Connection failed: ${err}`);
+      }
+    },
+  },
+  {
+    name: "p2p.getProfile",
+    description: "Get your discovery profile.",
+    inputSchema: {
+      type: "object",
+      properties: {},
+    },
+    handler: async () => {
+      const profile = getProfile();
+      if (!profile) {
+        return toolResult("Error: Discovery not initialized");
+      }
+      return toolResult(
+        JSON.stringify({
+          id: profile.id,
+          publicKey: `${profile.publicKey.slice(0, 20)}...`,
+          topics: profile.topics,
+          content: profile.content,
+          updated: new Date(profile.updated).toISOString(),
+        }),
+      );
+    },
+  },
+  {
+    name: "p2p.setProfile",
+    description: "Update your discovery profile content. This is broadcast to peers.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        content: {
+          type: "object",
+          description: "Profile content (name, about, capabilities, etc.)",
+        },
+      },
+      required: ["content"],
+    },
+    handler: async (args) => {
+      try {
+        const profile = updateProfile(args.content as Record<string, unknown>);
+        if (!profile) {
+          return toolResult("Error: Discovery not initialized");
+        }
+        return toolResult(
+          JSON.stringify({
+            success: true,
+            id: profile.id,
+            content: profile.content,
+            updated: new Date(profile.updated).toISOString(),
+          }),
+        );
+      } catch (err: unknown) {
+        return toolResult(`Error: Failed to update profile: ${err}`);
+      }
+    },
+  },
 ];
 
 /**
  * Plugin export
  */
 const plugin: WOPRPlugin = {
-	name: "p2p",
-	version: "1.0.0",
-	description: "P2P networking with Hyperswarm, identity, trust, and A2A tools",
-
-	manifest: {
-		name: "p2p",
-		version: "1.0.0",
-		description:
-			"P2P networking with Hyperswarm, identity, trust, and A2A tools",
-		capabilities: ["p2p", "pairing"],
-		category: "network",
-		tags: ["p2p", "hyperswarm", "networking", "a2a", "identity"],
-		icon: "globe",
-		requires: {
-			network: { p2p: true },
-		},
-		provides: {
-			capabilities: [],
-		},
-		lifecycle: {
-			shutdownBehavior: "graceful",
-		},
-		configSchema: {
-			title: "P2P Plugin Configuration",
-			description:
-				"Configure P2P networking settings for Hyperswarm DHT and peer communication",
-			fields: [
-				{
-					name: "bootstrap",
-					type: "array",
-					label: "Bootstrap Nodes",
-					description:
-						"Hyperswarm DHT bootstrap nodes (e.g. ['172.24.0.1:49737'])",
-				},
-				{
-					name: "connectionTimeout",
-					type: "number",
-					label: "Connection Timeout",
-					description: "Connection timeout in milliseconds",
-				},
-				{
-					name: "uiPort",
-					type: "number",
-					label: "UI Port",
-					description: "Port for the P2P UI server (default: 7334)",
-				},
-				{
-					name: "botUsername",
-					type: "text",
-					label: "Bot Username",
-					description: "Bot username for friend protocol",
-				},
-			],
-		},
-	},
-
-	// CLI commands
-	commands: [friendCommand],
-
-	async init(pluginContext: WOPRPluginContext) {
-		ctx = pluginContext;
-		ctx.log.info("Initializing P2P plugin...");
-
-		// Set up P2P module logger for debugging
-		setP2PLogger((msg) => ctx?.log.info(`[p2p] ${msg}`));
-
-		// Configure bootstrap nodes if specified in config
-		const pluginConfig = ctx.getConfig<Record<string, unknown>>();
-		ctx.log.info(`P2P plugin config received: ${JSON.stringify(pluginConfig)}`);
-		if (pluginConfig.bootstrap) {
-			const bootstrapNodes = Array.isArray(pluginConfig.bootstrap)
-				? pluginConfig.bootstrap
-				: [pluginConfig.bootstrap];
-			setP2PConfig({ bootstrap: bootstrapNodes as string[] });
-			ctx.log.info(`P2P bootstrap configured: ${bootstrapNodes.join(", ")}`);
-		} else {
-			ctx.log.warn("No bootstrap config found in plugin config");
-		}
-
-		// Initialize Storage API if available
-		if (ctx.storage) {
-			ctx.log.info("Registering P2P storage schema...");
-
-			// Register schema (creates tables if needed)
-			await ctx.storage.register(p2pPluginSchema);
-
-			// Set storage references in each module
-			setIdentityStorage(ctx.storage);
-			setTrustStorage(ctx.storage);
-			setFriendsStorage(ctx.storage);
-
-			// Run one-time migration from JSON files to SQL
-			// Only migrates files that still exist (idempotent)
-			await migrateJsonToSql(ctx.storage, (msg) =>
-				ctx?.log.info(`[p2p:migration] ${msg}`),
-			);
-
-			// Load all data into memory caches
-			await loadIdentity();
-			await loadTrustData();
-			await loadFriendsData();
-
-			ctx.log.info("P2P storage initialized");
-		} else {
-			ctx.log.warn(
-				"Storage API not available - using JSON file persistence (legacy mode)",
-			);
-		}
-
-		// Initialize pairing subsystem (cross-channel identity pairing)
-		if (ctx.storage) {
-			setPairingLogger(ctx.log);
-			setPairingCommandsLogger(ctx.log);
-			await initPairingStorage(ctx.storage);
-			ctx.log.info("Pairing storage initialized");
-		}
-
-		// Ensure identity exists
-		let identity = getIdentity();
-		if (!identity) {
-			identity = initIdentity();
-			ctx.log.info(`P2P identity created: ${shortKey(identity.publicKey)}`);
-		} else {
-			ctx.log.info(`P2P identity: ${shortKey(identity.publicKey)}`);
-		}
-
-		// Start P2P listener with log and inject handlers
-		p2pListener = createP2PListener({
-			// Log handler - mailbox style, just stores message in session history
-			onLogMessage: (session, message, peerKey) => {
-				incrementStat("messagesRelayed");
-				const peerId = peerKey ? shortKey(peerKey) : "unknown";
-				ctx?.log.info(`P2P log message: ${peerId} -> ${session}`);
-				ctx?.log.info(`P2P message content: ${message.slice(0, 200)}...`);
-
-				// Log the message to the session (makes it visible in history)
-				if (ctx?.logMessage) {
-					ctx.logMessage(session, message, {
-						from: `p2p:${peerId}`,
-						channel: { type: "p2p", id: peerKey || "unknown" },
-					});
-					ctx?.log.info(`[p2p] Message logged to session ${session}`);
-				} else {
-					ctx?.log.warn(
-						`[p2p] No logMessage method - message not logged to session`,
-					);
-				}
-			},
-
-			// Inject handler - invokes AI and returns response
-			onInjectMessage: async (session, message, peerKey) => {
-				incrementStat("messagesRelayed");
-				const peerId = peerKey ? shortKey(peerKey) : "unknown";
-				ctx?.log.info(`P2P inject message: ${peerId} -> ${session}`);
-				ctx?.log.info(`P2P message content: ${message.slice(0, 200)}...`);
-
-				// Get the friend's security context for proper trust level
-				const friendSecurity = peerKey
-					? getFriendSecurityContext(peerKey)
-					: null;
-				const trustLevel = (friendSecurity?.trustLevel || "untrusted") as
-					| "untrusted"
-					| "semi-trusted"
-					| "trusted"
-					| "owner";
-				ctx?.log.info(
-					`[p2p] Peer ${peerId} trust level: ${trustLevel} (sandboxed: ${trustLevel === "untrusted" || trustLevel === "semi-trusted"})`,
-				);
-
-				// Invoke the AI and get response
-				if (ctx?.inject) {
-					try {
-						ctx?.log.info(`[p2p] Calling ctx.inject for session ${session}...`);
-
-						// Track this session as being P2P injected into
-						// This prevents the AI from calling p2p_inject_message while processing
-						sessionsBeingInjected.add(session);
-						ctx?.log.info(
-							`[p2p] Session ${session} marked as being-injected (blocks p2p.injectMessage)`,
-						);
-
-						const startTime = Date.now();
-						try {
-							// Create security source with proper trust level for sandboxing
-							// Trust levels: untrusted/semi-trusted -> sandboxed, trusted/owner -> not sandboxed
-							const source = {
-								type: "p2p" as const,
-								trustLevel,
-								identity: { publicKey: peerKey || peerId },
-								grantedCapabilities: friendSecurity?.capabilities,
-							};
-
-							const response = await ctx.inject(session, message, {
-								from: `p2p:${peerKey || peerId}`,
-								channel: { type: "p2p", id: peerKey || "unknown" },
-								source, // Pass the security source with friend's trust level
-							});
-							const elapsed = Date.now() - startTime;
-							ctx?.log.info(
-								`[p2p] AI response generated (${response.length} chars) in ${elapsed}ms`,
-							);
-							return response;
-						} finally {
-							// Always clear the tracking, even on error
-							sessionsBeingInjected.delete(session);
-							ctx?.log.info(
-								`[p2p] Session ${session} cleared from being-injected tracking`,
-							);
-						}
-					} catch (err: unknown) {
-						ctx?.log.error(`[p2p] Inject failed: ${err}`);
-						return `Error: Failed to process message - ${err}`;
-					}
-				} else {
-					ctx?.log.warn(`[p2p] No inject method - cannot invoke AI`);
-					return "Error: AI injection not available";
-				}
-			},
-
-			// Connection tracking
-			onConnection: () => incrementStat("connectionsTotal"),
-
-			// Logging output
-			onLog: (msg) => ctx?.log.info(`[p2p] ${msg}`),
-		});
-
-		if (p2pListener) {
-			ctx.log.info("P2P listener started");
-		}
-
-		// Initialize discovery system
-		try {
-			await initDiscovery(
-				async (peerProfile, topic) => {
-					ctx?.log.info(
-						`Discovery connection request from ${peerProfile.id} in ${topic}`,
-					);
-
-					// Check if this peer has ANY valid grant (session filtering happens when messaging)
-					const grants = getAccessGrants();
-					const grant = grants.find(
-						(g) => g.peerKey === peerProfile.publicKey && !g.revoked,
-					);
-
-					if (grant) {
-						ctx?.log.info(
-							`[security] Peer ${peerProfile.id} has valid grant - accepting connection`,
-						);
-						return {
-							accept: true,
-							sessions: grant.sessions,
-						};
-					}
-
-					// SECURITY: Do NOT auto-accept discovered peers that haven't been granted access
-					// They must be explicitly granted access via p2p_grant_access
-					ctx?.log.warn(
-						`[security] Discovered peer ${peerProfile.id} requires explicit grant. ` +
-							`Use p2p.grantAccess to authorize.`,
-					);
-					return {
-						accept: false,
-						sessions: [],
-						reason: `Peer not authorized. Use p2p.grantAccess to authorize peer ${peerProfile.id}.`,
-					};
-				},
-				(msg) => ctx?.log.info(`[discovery] ${msg}`),
-			);
-			ctx.log.info("Discovery system initialized");
-		} catch (err: unknown) {
-			ctx.log.warn(`Failed to initialize discovery: ${err}`);
-		}
-
-		// Register A2A tools
-		const a2aConfig: A2AServerConfig = {
-			name: "p2p",
-			version: "1.0.0",
-			tools: p2pTools as A2AServerConfig["tools"],
-		};
-
-		if (ctx.registerA2AServer) {
-			ctx.registerA2AServer(a2aConfig);
-			ctx.log.info(`Registered ${p2pTools.length} P2P A2A tools`);
-
-			// Register pairing A2A tools
-			ctx.registerA2AServer(buildPairingA2ATools());
-			ctx.log.info("Registered pairing A2A tools");
-
-			// A2A server unregistration not supported in plugin-types@0.2.1
-		}
-
-		// Register P2P extension for other plugins to use
-		if (ctx.registerExtension) {
-			ctx.registerExtension("p2p", {
-				// Identity
-				getIdentity: () => {
-					const id = getIdentity();
-					return id
-						? {
-								publicKey: id.publicKey,
-								shortId: shortKey(id.publicKey),
-								encryptPub: id.encryptPub,
-							}
-						: null;
-				},
-				shortKey,
-
-				// Peers
-				getPeers,
-				findPeer,
-				namePeer,
-				revokePeer,
-
-				// Messaging
-				injectPeer: async (
-					peerKey: string,
-					session: string,
-					message: string,
-				) => {
-					return sendP2PInject(peerKey, session, message);
-				},
-
-				// Discovery
-				joinTopic,
-				leaveTopic,
-				getTopics,
-				getDiscoveredPeers,
-				requestConnection,
-
-				// Friend request handling (for Discord button integration)
-				acceptFriendRequest: async (
-					from: string,
-					_pubkey: string,
-					_encryptPub: string,
-					signature: string,
-					_channelId: string,
-				) => {
-					// Find the pending request by signature
-					const pending = getPendingIncomingBySignature(signature);
-					if (!pending) {
-						// Check if we can find it by username
-						const result = acceptPendingRequest(from);
-						if (!result) {
-							throw new Error(`No pending friend request from @${from}`);
-						}
-						// Complete the accept using the original request
-						const config = ctx?.getConfig<{ botUsername?: string }>();
-						const myUsername = config?.botUsername || "unknown";
-						const accept = createFriendAccept(result.request, myUsername);
-						return {
-							friend: result.friend,
-							acceptMessage: formatFriendAccept(accept),
-						};
-					}
-
-					// Accept the pending request
-					const result = acceptPendingRequest(from);
-					if (!result) {
-						throw new Error(`Failed to accept friend request from @${from}`);
-					}
-
-					// Get our bot username for the accept message
-					const config2 = ctx?.getConfig<{ botUsername?: string }>();
-					const myUsername = config2?.botUsername || "unknown";
-					const accept = createFriendAccept(result.request, myUsername);
-
-					ctx?.log.info(
-						`[p2p] Friend request from @${from} accepted via button`,
-					);
-
-					return {
-						friend: result.friend,
-						acceptMessage: formatFriendAccept(accept),
-					};
-				},
-
-				denyFriendRequest: async (from: string, signature: string) => {
-					// Try to find and remove by username or signature
-					const removed =
-						denyPendingRequest(from) || denyPendingRequest(signature);
-
-					if (!removed) {
-						throw new Error(`No pending friend request from @${from}`);
-					}
-
-					ctx?.log.info(`[p2p] Friend request from @${from} denied via button`);
-				},
-			});
-			ctx.log.info("Registered P2P extension for inter-plugin use");
-		}
-
-		// Register pairing extension for other plugins
-		if (ctx.registerExtension) {
-			ctx.registerExtension("pairing", {
-				resolveTrustLevel: pairingResolveTrustLevel,
-				findIdentityBySender: pairingFindIdentityBySender,
-				generatePairingCode,
-				verifyPairingCode,
-			});
-			ctx.log.info("Registered pairing extension for inter-plugin use");
-		}
-
-		// Register !pair commands on all channel providers
-		try {
-			const providers = ctx.getChannelProviders();
-			if (providers.length > 0) {
-				registerPairingOnAllProviders(providers);
-				ctx.log.info(
-					`Registered !pair command on ${providers.length} channel provider(s)`,
-				);
-			}
-		} catch (err: unknown) {
-			ctx.log.warn(`Failed to register pairing channel commands: ${err}`);
-		}
-
-		// Register friend protocol channel hooks
-		// This adds /friend, /accept, /friends, /unfriend, /grant commands to all channel providers
-		try {
-			registerChannelHooks(ctx);
-			registerAutoAcceptCommands(ctx);
-			ctx.log.info("Registered friend protocol channel hooks");
-		} catch (err: unknown) {
-			ctx.log.warn(`Failed to register channel hooks: ${err}`);
-		}
-
-		// Register P2P slash commands with Discord
-		// This merges with existing Discord commands so /friend, /accept, etc. show up
-		try {
-			// Get Discord config from main config or environment
-			const mainDiscordConfig = ctx.getMainConfig("discord") as
-				| { token?: string; clientId?: string; guildId?: string }
-				| undefined;
-			const discordToken =
-				mainDiscordConfig?.token || process.env.DISCORD_TOKEN;
-			const discordClientId =
-				mainDiscordConfig?.clientId || process.env.DISCORD_CLIENT_ID;
-			const discordGuildId =
-				mainDiscordConfig?.guildId || process.env.DISCORD_GUILD_ID;
-
-			if (discordToken && discordClientId) {
-				await registerP2PSlashCommands(
-					discordToken,
-					discordClientId,
-					discordGuildId,
-					ctx.log,
-				);
-			} else {
-				ctx.log.info(
-					"[p2p] Discord config not available - P2P slash commands not registered",
-				);
-			}
-		} catch (err: unknown) {
-			ctx.log.warn(`[p2p] Failed to register P2P slash commands: ${err}`);
-		}
-
-		// Clean up expired friend requests on startup
-		cleanupExpiredRequests();
-
-		// Sync all existing friends to WOPR security model
-		try {
-			syncAllFriendsToSecurity();
-			ctx.log.info("Synced friends to WOPR security model");
-		} catch (err: unknown) {
-			ctx.log.warn(`Failed to sync friends to security model: ${err}`);
-		}
-
-		// Start UI server
-		const config = ctx.getConfig<Record<string, unknown>>();
-		const uiPort = (config.uiPort as number) || 7334;
-
-		try {
-			uiServer = startUIServer(uiPort, ctx.getPluginDir());
-
-			// Register UI component
-			if (ctx.registerUiComponent) {
-				ctx.registerUiComponent({
-					id: "p2p-panel",
-					title: "P2P Network",
-					moduleUrl: `http://127.0.0.1:${uiPort}/ui.js`,
-					slot: "settings",
-					description: "Manage P2P peers and invites",
-				});
-				ctx.log.info("Registered P2P UI component");
-				cleanups.push(() => {
-					if (ctx?.unregisterUiComponent) {
-						ctx.unregisterUiComponent("p2p-panel");
-					}
-				});
-			}
-
-			// Register as web extension
-			if (ctx.registerWebUiExtension) {
-				ctx.registerWebUiExtension({
-					id: "p2p",
-					title: "P2P Network",
-					url: `http://127.0.0.1:${uiPort}`,
-					description: "P2P peer management",
-					category: "network",
-				});
-				cleanups.push(() => {
-					if (ctx?.unregisterWebUiExtension) {
-						ctx.unregisterWebUiExtension("p2p");
-					}
-				});
-			}
-		} catch (err: unknown) {
-			ctx.log.warn(`Failed to start UI server: ${err}`);
-		}
-
-		ctx.log.info("P2P plugin initialized");
-	},
-
-	async shutdown() {
-		logger.info("[p2p] Shutting down...");
-
-		// Run all registered cleanups in reverse order
-		for (const cleanup of [...cleanups].reverse()) {
-			try {
-				cleanup();
-			} catch {
-				// Ignore errors during shutdown cleanup
-			}
-		}
-		cleanups.length = 0;
-
-		// Reset stats
-		resetStats();
-
-		// Unregister pairing extension and commands
-		if (ctx?.unregisterExtension) {
-			ctx.unregisterExtension("pairing");
-		}
-		try {
-			const providers = ctx?.getChannelProviders() ?? [];
-			for (const provider of providers) {
-				unregisterPairingCommands(provider);
-			}
-		} catch {
-			// Ignore errors during shutdown
-		}
-		resetPairingStoreState();
-
-		// Unregister P2P extension
-		if (ctx?.unregisterExtension) {
-			ctx.unregisterExtension("p2p");
-			logger.info("[p2p] P2P extension unregistered");
-		}
-
-		// Shutdown discovery
-		try {
-			await shutdownDiscovery();
-			logger.info("[p2p] Discovery shutdown complete");
-		} catch (err: unknown) {
-			logger.warn(`[p2p] Discovery shutdown error: ${err}`);
-		}
-
-		if (p2pListener) {
-			await p2pListener.destroy();
-			p2pListener = null;
-		}
-
-		if (uiServer) {
-			await new Promise<void>((resolve) => uiServer?.close(() => resolve()));
-			uiServer = null;
-		}
-
-		ctx = null;
-		logger.info("[p2p] Shutdown complete");
-	},
+  name: "p2p",
+  version: "1.0.0",
+  description: "P2P networking with Hyperswarm, identity, trust, and A2A tools",
+
+  manifest: {
+    name: "p2p",
+    version: "1.0.0",
+    description: "P2P networking with Hyperswarm, identity, trust, and A2A tools",
+    capabilities: ["p2p", "pairing"],
+    category: "network",
+    tags: ["p2p", "hyperswarm", "networking", "a2a", "identity"],
+    icon: "globe",
+    requires: {
+      network: { p2p: true },
+    },
+    provides: {
+      capabilities: [],
+    },
+    lifecycle: {
+      shutdownBehavior: "graceful",
+    },
+    configSchema: {
+      title: "P2P Plugin Configuration",
+      description: "Configure P2P networking settings for Hyperswarm DHT and peer communication",
+      fields: [
+        {
+          name: "bootstrap",
+          type: "array",
+          label: "Bootstrap Nodes",
+          description: "Hyperswarm DHT bootstrap nodes (e.g. ['172.24.0.1:49737'])",
+        },
+        {
+          name: "connectionTimeout",
+          type: "number",
+          label: "Connection Timeout",
+          description: "Connection timeout in milliseconds",
+        },
+        {
+          name: "uiPort",
+          type: "number",
+          label: "UI Port",
+          description: "Port for the P2P UI server (default: 7334)",
+        },
+        {
+          name: "botUsername",
+          type: "text",
+          label: "Bot Username",
+          description: "Bot username for friend protocol",
+        },
+      ],
+    },
+  },
+
+  // CLI commands
+  commands: [friendCommand],
+
+  async init(pluginContext: WOPRPluginContext) {
+    ctx = pluginContext;
+    ctx.log.info("Initializing P2P plugin...");
+
+    // Set up P2P module logger for debugging
+    setP2PLogger((msg) => ctx?.log.info(`[p2p] ${msg}`));
+
+    // Configure bootstrap nodes if specified in config
+    const pluginConfig = ctx.getConfig<Record<string, unknown>>();
+    ctx.log.info(`P2P plugin config received: ${JSON.stringify(pluginConfig)}`);
+    if (pluginConfig.bootstrap) {
+      const bootstrapNodes = Array.isArray(pluginConfig.bootstrap) ? pluginConfig.bootstrap : [pluginConfig.bootstrap];
+      setP2PConfig({ bootstrap: bootstrapNodes as string[] });
+      ctx.log.info(`P2P bootstrap configured: ${bootstrapNodes.join(", ")}`);
+    } else {
+      ctx.log.warn("No bootstrap config found in plugin config");
+    }
+
+    // Initialize Storage API if available
+    if (ctx.storage) {
+      ctx.log.info("Registering P2P storage schema...");
+
+      // Register schema (creates tables if needed)
+      await ctx.storage.register(p2pPluginSchema);
+
+      // Set storage references in each module
+      setIdentityStorage(ctx.storage);
+      setTrustStorage(ctx.storage);
+      setFriendsStorage(ctx.storage);
+
+      // Run one-time migration from JSON files to SQL
+      // Only migrates files that still exist (idempotent)
+      await migrateJsonToSql(ctx.storage, (msg) => ctx?.log.info(`[p2p:migration] ${msg}`));
+
+      // Load all data into memory caches
+      await loadIdentity();
+      await loadTrustData();
+      await loadFriendsData();
+
+      ctx.log.info("P2P storage initialized");
+    } else {
+      ctx.log.warn("Storage API not available - using JSON file persistence (legacy mode)");
+    }
+
+    // Initialize pairing subsystem (cross-channel identity pairing)
+    if (ctx.storage) {
+      setPairingLogger(ctx.log);
+      setPairingCommandsLogger(ctx.log);
+      await initPairingStorage(ctx.storage);
+      ctx.log.info("Pairing storage initialized");
+    }
+
+    // Ensure identity exists
+    let identity = getIdentity();
+    if (!identity) {
+      identity = initIdentity();
+      ctx.log.info(`P2P identity created: ${shortKey(identity.publicKey)}`);
+    } else {
+      ctx.log.info(`P2P identity: ${shortKey(identity.publicKey)}`);
+    }
+
+    // Start P2P listener with log and inject handlers
+    p2pListener = createP2PListener({
+      // Log handler - mailbox style, just stores message in session history
+      onLogMessage: (session, message, peerKey) => {
+        incrementStat("messagesRelayed");
+        const peerId = peerKey ? shortKey(peerKey) : "unknown";
+        ctx?.log.info(`P2P log message: ${peerId} -> ${session}`);
+        ctx?.log.info(`P2P message content: ${message.slice(0, 200)}...`);
+
+        // Log the message to the session (makes it visible in history)
+        if (ctx?.logMessage) {
+          ctx.logMessage(session, message, {
+            from: `p2p:${peerId}`,
+            channel: { type: "p2p", id: peerKey || "unknown" },
+          });
+          ctx?.log.info(`[p2p] Message logged to session ${session}`);
+        } else {
+          ctx?.log.warn(`[p2p] No logMessage method - message not logged to session`);
+        }
+      },
+
+      // Inject handler - invokes AI and returns response
+      onInjectMessage: async (session, message, peerKey) => {
+        incrementStat("messagesRelayed");
+        const peerId = peerKey ? shortKey(peerKey) : "unknown";
+        ctx?.log.info(`P2P inject message: ${peerId} -> ${session}`);
+        ctx?.log.info(`P2P message content: ${message.slice(0, 200)}...`);
+
+        // Get the friend's security context for proper trust level
+        const friendSecurity = peerKey ? getFriendSecurityContext(peerKey) : null;
+        const trustLevel = (friendSecurity?.trustLevel || "untrusted") as
+          | "untrusted"
+          | "semi-trusted"
+          | "trusted"
+          | "owner";
+        ctx?.log.info(
+          `[p2p] Peer ${peerId} trust level: ${trustLevel} (sandboxed: ${trustLevel === "untrusted" || trustLevel === "semi-trusted"})`,
+        );
+
+        // Invoke the AI and get response
+        if (ctx?.inject) {
+          try {
+            ctx?.log.info(`[p2p] Calling ctx.inject for session ${session}...`);
+
+            // Track this session as being P2P injected into
+            // This prevents the AI from calling p2p_inject_message while processing
+            sessionsBeingInjected.add(session);
+            ctx?.log.info(`[p2p] Session ${session} marked as being-injected (blocks p2p.injectMessage)`);
+
+            const startTime = Date.now();
+            try {
+              // Create security source with proper trust level for sandboxing
+              // Trust levels: untrusted/semi-trusted -> sandboxed, trusted/owner -> not sandboxed
+              const source = {
+                type: "p2p" as const,
+                trustLevel,
+                identity: { publicKey: peerKey || peerId },
+                grantedCapabilities: friendSecurity?.capabilities,
+              };
+
+              const response = await ctx.inject(session, message, {
+                from: `p2p:${peerKey || peerId}`,
+                channel: { type: "p2p", id: peerKey || "unknown" },
+                source, // Pass the security source with friend's trust level
+              });
+              const elapsed = Date.now() - startTime;
+              ctx?.log.info(`[p2p] AI response generated (${response.length} chars) in ${elapsed}ms`);
+              return response;
+            } finally {
+              // Always clear the tracking, even on error
+              sessionsBeingInjected.delete(session);
+              ctx?.log.info(`[p2p] Session ${session} cleared from being-injected tracking`);
+            }
+          } catch (err: unknown) {
+            ctx?.log.error(`[p2p] Inject failed: ${err}`);
+            return `Error: Failed to process message - ${err}`;
+          }
+        } else {
+          ctx?.log.warn(`[p2p] No inject method - cannot invoke AI`);
+          return "Error: AI injection not available";
+        }
+      },
+
+      // Connection tracking
+      onConnection: () => incrementStat("connectionsTotal"),
+
+      // Logging output
+      onLog: (msg) => ctx?.log.info(`[p2p] ${msg}`),
+    });
+
+    if (p2pListener) {
+      ctx.log.info("P2P listener started");
+    }
+
+    // Initialize discovery system
+    try {
+      await initDiscovery(
+        async (peerProfile, topic) => {
+          ctx?.log.info(`Discovery connection request from ${peerProfile.id} in ${topic}`);
+
+          // Check if this peer has ANY valid grant (session filtering happens when messaging)
+          const grants = getAccessGrants();
+          const grant = grants.find((g) => g.peerKey === peerProfile.publicKey && !g.revoked);
+
+          if (grant) {
+            ctx?.log.info(`[security] Peer ${peerProfile.id} has valid grant - accepting connection`);
+            return {
+              accept: true,
+              sessions: grant.sessions,
+            };
+          }
+
+          // SECURITY: Do NOT auto-accept discovered peers that haven't been granted access
+          // They must be explicitly granted access via p2p_grant_access
+          ctx?.log.warn(
+            `[security] Discovered peer ${peerProfile.id} requires explicit grant. ` +
+              `Use p2p.grantAccess to authorize.`,
+          );
+          return {
+            accept: false,
+            sessions: [],
+            reason: `Peer not authorized. Use p2p.grantAccess to authorize peer ${peerProfile.id}.`,
+          };
+        },
+        (msg) => ctx?.log.info(`[discovery] ${msg}`),
+      );
+      ctx.log.info("Discovery system initialized");
+    } catch (err: unknown) {
+      ctx.log.warn(`Failed to initialize discovery: ${err}`);
+    }
+
+    // Register A2A tools
+    const a2aConfig: A2AServerConfig = {
+      name: "p2p",
+      version: "1.0.0",
+      tools: p2pTools as A2AServerConfig["tools"],
+    };
+
+    if (ctx.registerA2AServer) {
+      ctx.registerA2AServer(a2aConfig);
+      ctx.log.info(`Registered ${p2pTools.length} P2P A2A tools`);
+
+      // Register pairing A2A tools
+      ctx.registerA2AServer(buildPairingA2ATools());
+      ctx.log.info("Registered pairing A2A tools");
+
+      // A2A server unregistration not supported in plugin-types@0.2.1
+    }
+
+    // Register P2P extension for other plugins to use
+    if (ctx.registerExtension) {
+      ctx.registerExtension("p2p", {
+        // Identity
+        getIdentity: () => {
+          const id = getIdentity();
+          return id
+            ? {
+                publicKey: id.publicKey,
+                shortId: shortKey(id.publicKey),
+                encryptPub: id.encryptPub,
+              }
+            : null;
+        },
+        shortKey,
+
+        // Peers
+        getPeers,
+        findPeer,
+        namePeer,
+        revokePeer,
+
+        // Messaging
+        injectPeer: async (peerKey: string, session: string, message: string) => {
+          return sendP2PInject(peerKey, session, message);
+        },
+
+        // Discovery
+        joinTopic,
+        leaveTopic,
+        getTopics,
+        getDiscoveredPeers,
+        requestConnection,
+
+        // Friend request handling (for Discord button integration)
+        acceptFriendRequest: async (
+          from: string,
+          _pubkey: string,
+          _encryptPub: string,
+          signature: string,
+          _channelId: string,
+        ) => {
+          // Find the pending request by signature
+          const pending = getPendingIncomingBySignature(signature);
+          if (!pending) {
+            // Check if we can find it by username
+            const result = acceptPendingRequest(from);
+            if (!result) {
+              throw new Error(`No pending friend request from @${from}`);
+            }
+            // Complete the accept using the original request
+            const config = ctx?.getConfig<{ botUsername?: string }>();
+            const myUsername = config?.botUsername || "unknown";
+            const accept = createFriendAccept(result.request, myUsername);
+            return {
+              friend: result.friend,
+              acceptMessage: formatFriendAccept(accept),
+            };
+          }
+
+          // Accept the pending request
+          const result = acceptPendingRequest(from);
+          if (!result) {
+            throw new Error(`Failed to accept friend request from @${from}`);
+          }
+
+          // Get our bot username for the accept message
+          const config2 = ctx?.getConfig<{ botUsername?: string }>();
+          const myUsername = config2?.botUsername || "unknown";
+          const accept = createFriendAccept(result.request, myUsername);
+
+          ctx?.log.info(`[p2p] Friend request from @${from} accepted via button`);
+
+          return {
+            friend: result.friend,
+            acceptMessage: formatFriendAccept(accept),
+          };
+        },
+
+        denyFriendRequest: async (from: string, signature: string) => {
+          // Try to find and remove by username or signature
+          const removed = denyPendingRequest(from) || denyPendingRequest(signature);
+
+          if (!removed) {
+            throw new Error(`No pending friend request from @${from}`);
+          }
+
+          ctx?.log.info(`[p2p] Friend request from @${from} denied via button`);
+        },
+      });
+      ctx.log.info("Registered P2P extension for inter-plugin use");
+    }
+
+    // Register pairing extension for other plugins
+    if (ctx.registerExtension) {
+      ctx.registerExtension("pairing", {
+        resolveTrustLevel: pairingResolveTrustLevel,
+        findIdentityBySender: pairingFindIdentityBySender,
+        generatePairingCode,
+        verifyPairingCode,
+      });
+      ctx.log.info("Registered pairing extension for inter-plugin use");
+    }
+
+    // Register !pair commands on all channel providers
+    try {
+      const providers = ctx.getChannelProviders();
+      if (providers.length > 0) {
+        registerPairingOnAllProviders(providers);
+        ctx.log.info(`Registered !pair command on ${providers.length} channel provider(s)`);
+      }
+    } catch (err: unknown) {
+      ctx.log.warn(`Failed to register pairing channel commands: ${err}`);
+    }
+
+    // Register friend protocol channel hooks
+    // This adds /friend, /accept, /friends, /unfriend, /grant commands to all channel providers
+    try {
+      registerChannelHooks(ctx);
+      registerAutoAcceptCommands(ctx);
+      ctx.log.info("Registered friend protocol channel hooks");
+    } catch (err: unknown) {
+      ctx.log.warn(`Failed to register channel hooks: ${err}`);
+    }
+
+    // Register P2P slash commands with Discord
+    // This merges with existing Discord commands so /friend, /accept, etc. show up
+    try {
+      // Get Discord config from main config or environment
+      const mainDiscordConfig = ctx.getMainConfig("discord") as
+        | { token?: string; clientId?: string; guildId?: string }
+        | undefined;
+      const discordToken = mainDiscordConfig?.token || process.env.DISCORD_TOKEN;
+      const discordClientId = mainDiscordConfig?.clientId || process.env.DISCORD_CLIENT_ID;
+      const discordGuildId = mainDiscordConfig?.guildId || process.env.DISCORD_GUILD_ID;
+
+      if (discordToken && discordClientId) {
+        await registerP2PSlashCommands(discordToken, discordClientId, discordGuildId, ctx.log);
+      } else {
+        ctx.log.info("[p2p] Discord config not available - P2P slash commands not registered");
+      }
+    } catch (err: unknown) {
+      ctx.log.warn(`[p2p] Failed to register P2P slash commands: ${err}`);
+    }
+
+    // Clean up expired friend requests on startup
+    cleanupExpiredRequests();
+
+    // Sync all existing friends to WOPR security model
+    try {
+      syncAllFriendsToSecurity();
+      ctx.log.info("Synced friends to WOPR security model");
+    } catch (err: unknown) {
+      ctx.log.warn(`Failed to sync friends to security model: ${err}`);
+    }
+
+    // Start UI server
+    const config = ctx.getConfig<Record<string, unknown>>();
+    const uiPort = (config.uiPort as number) || 7334;
+
+    try {
+      uiServer = startUIServer(uiPort, ctx.getPluginDir());
+
+      // Register UI component
+      if (ctx.registerUiComponent) {
+        ctx.registerUiComponent({
+          id: "p2p-panel",
+          title: "P2P Network",
+          moduleUrl: `http://127.0.0.1:${uiPort}/ui.js`,
+          slot: "settings",
+          description: "Manage P2P peers and invites",
+        });
+        ctx.log.info("Registered P2P UI component");
+        cleanups.push(() => {
+          if (ctx?.unregisterUiComponent) {
+            ctx.unregisterUiComponent("p2p-panel");
+          }
+        });
+      }
+
+      // Register as web extension
+      if (ctx.registerWebUiExtension) {
+        ctx.registerWebUiExtension({
+          id: "p2p",
+          title: "P2P Network",
+          url: `http://127.0.0.1:${uiPort}`,
+          description: "P2P peer management",
+          category: "network",
+        });
+        cleanups.push(() => {
+          if (ctx?.unregisterWebUiExtension) {
+            ctx.unregisterWebUiExtension("p2p");
+          }
+        });
+      }
+    } catch (err: unknown) {
+      ctx.log.warn(`Failed to start UI server: ${err}`);
+    }
+
+    ctx.log.info("P2P plugin initialized");
+  },
+
+  async shutdown() {
+    logger.info("[p2p] Shutting down...");
+
+    // Run all registered cleanups in reverse order
+    for (const cleanup of [...cleanups].reverse()) {
+      try {
+        cleanup();
+      } catch {
+        // Ignore errors during shutdown cleanup
+      }
+    }
+    cleanups.length = 0;
+
+    // Reset stats
+    resetStats();
+
+    // Unregister pairing extension and commands
+    if (ctx?.unregisterExtension) {
+      ctx.unregisterExtension("pairing");
+    }
+    try {
+      const providers = ctx?.getChannelProviders() ?? [];
+      for (const provider of providers) {
+        unregisterPairingCommands(provider);
+      }
+    } catch {
+      // Ignore errors during shutdown
+    }
+    resetPairingStoreState();
+
+    // Unregister P2P extension
+    if (ctx?.unregisterExtension) {
+      ctx.unregisterExtension("p2p");
+      logger.info("[p2p] P2P extension unregistered");
+    }
+
+    // Shutdown discovery
+    try {
+      await shutdownDiscovery();
+      logger.info("[p2p] Discovery shutdown complete");
+    } catch (err: unknown) {
+      logger.warn(`[p2p] Discovery shutdown error: ${err}`);
+    }
+
+    if (p2pListener) {
+      await p2pListener.destroy();
+      p2pListener = null;
+    }
+
+    if (uiServer) {
+      await new Promise<void>((resolve) => uiServer?.close(() => resolve()));
+      uiServer = null;
+    }
+
+    ctx = null;
+    logger.info("[p2p] Shutdown complete");
+  },
 };
 
 export default plugin;

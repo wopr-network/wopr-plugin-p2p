@@ -8,10 +8,8 @@
 import { describe, it, afterEach, beforeEach, expect } from "vitest";
 import http from "node:http";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
-import http from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, it } from "node:test";
 
 import { _startUIServer as startUIServer } from "../src/index.js";
 
@@ -60,70 +58,64 @@ describe("UI Server Path Traversal Protection (WOP-619)", () => {
     rmSync(pluginDir, { recursive: true, force: true });
   });
 
-	it("should serve ui.js from plugin directory on GET /", async () => {
-		const res = await fetchUrl(`http://127.0.0.1:${port}/`);
-		expect(res.status).toBe(200);
-		expect(res.body.includes("p2p ui")).toBeTruthy();
-	});
+  it("should serve ui.js from plugin directory on GET /", async () => {
+    const res = await fetchUrl(`http://127.0.0.1:${port}/`);
+    expect(res.status).toBe(200);
+    expect(res.body.includes("p2p ui")).toBeTruthy();
+  });
 
-	it("should serve ui.js from plugin directory on GET /ui.js", async () => {
-		const res = await fetchUrl(`http://127.0.0.1:${port}/ui.js`);
-		expect(res.status).toBe(200);
-		expect(res.body.includes("p2p ui")).toBeTruthy();
-	});
+  it("should serve ui.js from plugin directory on GET /ui.js", async () => {
+    const res = await fetchUrl(`http://127.0.0.1:${port}/ui.js`);
+    expect(res.status).toBe(200);
+    expect(res.body.includes("p2p ui")).toBeTruthy();
+  });
 
-	it("should serve .css files from plugin directory", async () => {
-		const res = await fetchUrl(`http://127.0.0.1:${port}/style.css`);
-		expect(res.status).toBe(200);
-		expect(res.body.includes("color: red")).toBeTruthy();
-	});
+  it("should serve .css files from plugin directory", async () => {
+    const res = await fetchUrl(`http://127.0.0.1:${port}/style.css`);
+    expect(res.status).toBe(200);
+    expect(res.body.includes("color: red")).toBeTruthy();
+  });
 
-	it("should serve .html files from plugin directory", async () => {
-		const res = await fetchUrl(`http://127.0.0.1:${port}/index.html`);
-		expect(res.status).toBe(200);
-		expect(res.body.includes("P2P")).toBeTruthy();
-	});
+  it("should serve .html files from plugin directory", async () => {
+    const res = await fetchUrl(`http://127.0.0.1:${port}/index.html`);
+    expect(res.status).toBe(200);
+    expect(res.body.includes("P2P")).toBeTruthy();
+  });
 
-	it("should return 404 for non-existent allowed file", async () => {
-		const res = await fetchUrl(`http://127.0.0.1:${port}/nonexistent.js`);
-		expect(res.status).toBe(404);
-	});
+  it("should return 404 for non-existent allowed file", async () => {
+    const res = await fetchUrl(`http://127.0.0.1:${port}/nonexistent.js`);
+    expect(res.status).toBe(404);
+  });
 
-	it("should block ../ traversal (GET /../../etc/passwd)", async () => {
-		const res = await fetchUrl(
-			`http://127.0.0.1:${port}/../../etc/passwd`,
-		);
-		expect(res.status).toBe(403);
-	});
+  it("should block ../ traversal (GET /../../etc/passwd)", async () => {
+    const res = await fetchUrl(`http://127.0.0.1:${port}/../../etc/passwd`);
+    expect(res.status).toBe(403);
+  });
 
-	it("should block URL-encoded traversal (GET /%2e%2e/%2e%2e/etc/passwd)", async () => {
-		const res = await fetchUrl(
-			`http://127.0.0.1:${port}/%2e%2e/%2e%2e/etc/passwd`,
-		);
-		expect(res.status).toBe(403);
-	});
+  it("should block URL-encoded traversal (GET /%2e%2e/%2e%2e/etc/passwd)", async () => {
+    const res = await fetchUrl(`http://127.0.0.1:${port}/%2e%2e/%2e%2e/etc/passwd`);
+    expect(res.status).toBe(403);
+  });
 
-	it("should block traversal with query string (GET /../../../etc/passwd?foo=bar)", async () => {
-		const res = await fetchUrl(
-			`http://127.0.0.1:${port}/../../../etc/passwd?foo=bar`,
-		);
-		expect(res.status).toBe(403);
-	});
+  it("should block traversal with query string (GET /../../../etc/passwd?foo=bar)", async () => {
+    const res = await fetchUrl(`http://127.0.0.1:${port}/../../../etc/passwd?foo=bar`);
+    expect(res.status).toBe(403);
+  });
 
-	it("should block non-allowlisted extension .json (403 Forbidden)", async () => {
-		const res = await fetchUrl(`http://127.0.0.1:${port}/secret.json`);
-		expect(res.status).toBe(403);
-	});
+  it("should block non-allowlisted extension .json (403 Forbidden)", async () => {
+    const res = await fetchUrl(`http://127.0.0.1:${port}/secret.json`);
+    expect(res.status).toBe(403);
+  });
 
-	it("should block non-allowlisted extension .exe (403 Forbidden)", async () => {
-		const res = await fetchUrl(`http://127.0.0.1:${port}/malware.exe`);
-		expect(res.status).toBe(403);
-	});
+  it("should block non-allowlisted extension .exe (403 Forbidden)", async () => {
+    const res = await fetchUrl(`http://127.0.0.1:${port}/malware.exe`);
+    expect(res.status).toBe(403);
+  });
 
-	it("should block absolute path injection (GET //etc/passwd)", async () => {
-		// Double-slash may be treated as /etc/passwd — must not serve it
-		const res = await fetchUrl(`http://127.0.0.1:${port}//etc/passwd`);
-		// Either 403 (traversal blocked) or 404 (file not in dir) is acceptable
-		expect(res.status === 403 || res.status === 404).toBeTruthy();
-	});
+  it("should block absolute path injection (GET //etc/passwd)", async () => {
+    // Double-slash may be treated as /etc/passwd — must not serve it
+    const res = await fetchUrl(`http://127.0.0.1:${port}//etc/passwd`);
+    // Either 403 (traversal blocked) or 404 (file not in dir) is acceptable
+    expect(res.status === 403 || res.status === 404).toBeTruthy();
+  });
 });
