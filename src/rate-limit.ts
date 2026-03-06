@@ -59,8 +59,7 @@ export function getRateLimiter() {
 
 // Replay protection
 const replayState: ReplayState = {
-  nonces: new Set(),
-  timestamps: [],
+  nonces: new Map(),
 };
 
 const REPLAY_WINDOW_MS = 300000; // 5 minutes
@@ -81,19 +80,17 @@ export function getReplayProtector() {
         return false;
       }
 
-      // Record nonce
-      replayState.nonces.add(nonce);
-      replayState.timestamps.push(now);
+      // Record nonce with its timestamp
+      replayState.nonces.set(nonce, now);
 
-      // Cleanup old nonces periodically
+      // Cleanup old nonces periodically — prune entries outside the replay window
       if (replayState.nonces.size > MAX_NONCES) {
-        const _cutoff = now - REPLAY_WINDOW_MS;
-        const _newNonces = new Set<string>();
-        const _newTimestamps: number[] = [];
-
-        // Keep only recent entries (simplified cleanup)
-        replayState.nonces.clear();
-        replayState.timestamps.length = 0;
+        const cutoff = now - REPLAY_WINDOW_MS;
+        for (const [n, ts] of replayState.nonces) {
+          if (ts <= cutoff) {
+            replayState.nonces.delete(n);
+          }
+        }
       }
 
       return true;
@@ -101,7 +98,6 @@ export function getReplayProtector() {
 
     reset(): void {
       replayState.nonces.clear();
-      replayState.timestamps.length = 0;
     },
   };
 }

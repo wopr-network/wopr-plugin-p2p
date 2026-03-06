@@ -156,8 +156,7 @@ export interface RateLimits {
 }
 
 export interface ReplayState {
-  nonces: Set<string>;
-  timestamps: number[];
+  nonces: Map<string, number>; // nonce -> timestamp
 }
 
 export interface Profile {

@@ -42,16 +42,13 @@ function createMockCtx() {
 async function captureConsole(fn: () => Promise<void>): Promise<{ stdout: string[]; stderr: string[] }> {
   const stdout: string[] = [];
   const stderr: string[] = [];
-  const origLog = console.log;
   const origInfo = console.info;
   const origError = console.error;
-  console.log = (...args: any[]) => stdout.push(args.map(String).join(" "));
   console.info = (...args: any[]) => stdout.push(args.map(String).join(" "));
   console.error = (...args: any[]) => stderr.push(args.map(String).join(" "));
   try {
     await fn();
   } finally {
-    console.log = origLog;
     console.info = origInfo;
     console.error = origError;
   }
