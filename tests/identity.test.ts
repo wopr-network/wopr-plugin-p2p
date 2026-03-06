@@ -9,7 +9,6 @@ import { describe, it, beforeEach, afterEach, expect, vi } from "vitest";
 import { mkdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, it } from "node:test";
 
 const TEST_DATA_DIR = join(tmpdir(), "wopr-p2p-test-identity-" + process.pid);
 

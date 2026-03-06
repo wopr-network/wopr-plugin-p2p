@@ -7,7 +7,11 @@
  * This allows the friending protocol to work across any messaging channel.
  */
 
-import type { WOPRPluginContext } from "@wopr-network/plugin-types";
+import type {
+  ChannelNotificationCallbacks,
+  ChannelNotificationPayload,
+  WOPRPluginContext,
+} from "@wopr-network/plugin-types";
 import {
   acceptPendingRequest,
   addAutoAcceptRule,
@@ -34,30 +38,6 @@ import {
   verifyFriendRequest,
 } from "./friends.js";
 import { getIdentity, shortKey } from "./identity.js";
-
-interface ChannelNotificationPayload {
-  type: string;
-  from?: string;
-  pubkey?: string;
-  encryptPub?: string;
-  signature?: string;
-  channelName?: string;
-  [key: string]: unknown;
-}
-
-interface ChannelNotificationCallbacks {
-  onAccept?: () => Promise<void>;
-  onDeny?: () => Promise<void>;
-}
-
-interface ChannelProviderWithNotification {
-  id: string;
-  sendNotification?: (
-    channelId: string,
-    payload: ChannelNotificationPayload,
-    callbacks?: ChannelNotificationCallbacks,
-  ) => Promise<void>;
-}
 
 // Use WOPRPluginContext directly — shared type includes getChannelProviders() and getExtension()
 
@@ -508,7 +488,7 @@ function registerFriendRequestParser(
             },
           };
 
-          for (const provider of ctx.getChannelProviders() as ChannelProviderWithNotification[]) {
+          for (const provider of ctx.getChannelProviders()) {
             if (provider.sendNotification) {
               try {
                 await provider.sendNotification(msgCtx.channel, payload, callbacks);
