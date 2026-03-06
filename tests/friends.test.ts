@@ -8,7 +8,6 @@ import { describe, it, afterEach, expect } from "vitest";
 import { mkdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, describe, it } from "node:test";
 
 import { formatFriendAccept, formatFriendRequest, parseFriendAccept, parseFriendRequest } from "../src/friends.js";
 

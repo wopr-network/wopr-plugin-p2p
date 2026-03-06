@@ -8,7 +8,6 @@ import { describe, it, afterEach, beforeEach, expect, vi } from "vitest";
 import { mkdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, describe, it } from "node:test";
 
 import { friendCommand, handleFriendCommand } from "../src/cli-commands.js";
 

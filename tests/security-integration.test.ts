@@ -9,8 +9,6 @@ import { describe, it, beforeEach, afterEach, expect, vi } from "vitest";
 import { mkdirSync, rmSync, existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { afterEach, beforeEach, describe, it } from "node:test";
 import { initIdentity } from "../src/identity.js";
 import {
   FRIEND_CAP_TO_TRUST_LEVEL,

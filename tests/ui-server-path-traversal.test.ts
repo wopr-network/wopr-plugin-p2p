@@ -8,10 +8,8 @@
 import { describe, it, afterEach, beforeEach, expect } from "vitest";
 import http from "node:http";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
-import http from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, it } from "node:test";
 
 import { _startUIServer as startUIServer } from "../src/index.js";
 

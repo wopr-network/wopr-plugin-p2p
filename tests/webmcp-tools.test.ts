@@ -11,6 +11,7 @@ import {
   formatBytes,
   formatUptime,
 } from "../src/webmcp-tools.js";
+import { incrementStat, resetStats } from "../src/stats.js";
 
 describe("WebMCP Tools", () => {
   beforeEach(() => {

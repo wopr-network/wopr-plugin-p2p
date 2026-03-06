@@ -7,6 +7,7 @@
 
 import { describe, it, beforeEach, afterEach, expect, vi } from "vitest";
 import { mkdirSync, rmSync } from "node:fs";
+import { join } from "node:path";
 import { tmpdir } from "node:os";
 
 import type { AccessGrant, Peer, KeyRotation } from "../src/types.js";
