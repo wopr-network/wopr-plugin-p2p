@@ -2,7 +2,7 @@
  * Unit tests for the P2P Stats module
  */
 
-import { describe, it, beforeEach, expect } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 
 import { getP2PStats, incrementStat, resetStats } from "../src/stats.js";
 

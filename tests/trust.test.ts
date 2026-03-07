@@ -5,12 +5,12 @@
  * key rotation processing, and expired key history cleanup.
  */
 
-import { describe, it, beforeEach, afterEach, expect, vi } from "vitest";
 import { mkdirSync, rmSync } from "node:fs";
-import { join } from "node:path";
 import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { AccessGrant, Peer, KeyRotation } from "../src/types.js";
+import type { AccessGrant, KeyRotation, Peer } from "../src/types.js";
 
 const TEST_DATA_DIR = join(tmpdir(), `wopr-p2p-test-trust-${process.pid}`);
 

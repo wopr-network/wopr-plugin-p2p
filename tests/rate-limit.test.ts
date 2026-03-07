@@ -5,7 +5,7 @@
  * and replay protection (nonce deduplication, timestamp window).
  */
 
-import { describe, it, beforeEach, expect } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 
 import { getRateLimiter, getReplayProtector } from "../src/rate-limit.js";
 

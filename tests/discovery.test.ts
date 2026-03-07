@@ -5,7 +5,7 @@
  * and grant notifications. Mocks Hyperswarm for isolation.
  */
 
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 
 // We need to mock identity and trust before importing discovery.
 // Since node:test doesn't have vi.mock, we test the pure state functions

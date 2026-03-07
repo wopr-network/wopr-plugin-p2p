@@ -2,8 +2,8 @@
  * Unit tests for the WebMCP response builders
  */
 
-import { describe, it, beforeEach, expect } from "vitest";
-
+import { beforeEach, describe, expect, it } from "vitest";
+import { incrementStat, resetStats } from "../src/stats.js";
 import {
   buildListPeersResponse,
   buildP2pStatsResponse,
@@ -11,7 +11,6 @@ import {
   formatBytes,
   formatUptime,
 } from "../src/webmcp-tools.js";
-import { resetStats, incrementStat } from "../src/stats.js";
 
 describe("WebMCP Tools", () => {
   beforeEach(() => {

@@ -5,10 +5,10 @@
  * friend action validation, and security context retrieval.
  */
 
-import { describe, it, beforeEach, afterEach, expect, vi } from "vitest";
-import { mkdirSync, rmSync, existsSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { initIdentity } from "../src/identity.js";
 import {
   FRIEND_CAP_TO_TRUST_LEVEL,

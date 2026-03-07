@@ -7,10 +7,10 @@
  * (requires live DHT). We test the validation and error paths.
  */
 
-import { describe, it, afterEach, expect } from "vitest";
 import { mkdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { afterEach, describe, expect, it } from "vitest";
 
 import { claimToken, createP2PListener, sendKeyRotation, sendP2PInject, sendP2PLog, setP2PLogger } from "../src/p2p.js";
 import { EXIT_INVALID } from "../src/types.js";

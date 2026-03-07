@@ -4,10 +4,10 @@
  * Tests signature generation, verification, message parsing, and friend management.
  */
 
-import { describe, it, afterEach, expect } from "vitest";
 import { mkdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { afterEach, describe, expect, it } from "vitest";
 
 import { formatFriendAccept, formatFriendRequest, parseFriendAccept, parseFriendRequest } from "../src/friends.js";
 

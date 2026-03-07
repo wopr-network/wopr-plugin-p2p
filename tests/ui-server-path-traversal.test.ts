@@ -5,11 +5,12 @@
  * it passed req.url directly to path.join() without sanitization.
  * These tests verify the fix is in place.
  */
-import { describe, it, afterEach, beforeEach, expect } from "vitest";
-import http from "node:http";
+
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import http from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { _startUIServer as startUIServer } from "../src/index.js";
 
